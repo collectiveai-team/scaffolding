@@ -22,7 +22,7 @@ dependencies = [
 scaffolding = "scaffolding.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.7.0"]
+dev = ["pytest>=8.0", "ruff>=0.15.20"]
 
 # Version derived from git tags (vX.Y.Z) by hatch-vcs.
 [tool.hatch.version]
