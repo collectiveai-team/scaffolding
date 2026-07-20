@@ -511,7 +511,7 @@ def plan_skills(ctx: Context) -> list[Op]:
             "npx",
             "skills",
             "add",
-            "jedzill4/scaffolding",
+            "collectiveai-team/scaffolding",
             "--agent",
             install_agent,
             "--yes",

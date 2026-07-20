@@ -10,9 +10,9 @@
   merge, or overwrite existing target files (existing targets are deferred).
 - `install.sh` — thin bootstrap shim (ensure `uv`, then `uvx … scaffolding
   install`). Keep it minimal and keep its raw URL pointing at
-  `jedzill4/scaffolding` on `main`.
+  `collectiveai-team/scaffolding` on `main`.
 - `guide.md` — the agentic-install guide (judgment layer that drives the CLI and
-  handles merges). Keep template raw URLs pointing at `jedzill4/scaffolding`.
+  handles merges). Keep template raw URLs pointing at `collectiveai-team/scaffolding`.
 - `skills/` — actual installed skills (`journalist`, `handoff`).
 
 Agent targets are multi-valued (`--agent`, repeatable: `opencode`/`claude-code`/

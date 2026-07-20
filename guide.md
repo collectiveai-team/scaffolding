@@ -7,15 +7,15 @@ merges the CLI deliberately refuses to do.
 
 Point an agent at the raw URL of this file and have it follow every step:
 
-`https://raw.githubusercontent.com/jedzill4/scaffolding/main/guide.md`
+`https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/guide.md`
 
 For a brand-new/empty repo you can skip the agent and run the CLI directly
 (clean adds only; it refuses to touch existing files):
 
 ```bash
-uvx --from git+https://github.com/jedzill4/scaffolding scaffolding install
+uvx --from git+https://github.com/collectiveai-team/scaffolding scaffolding install
 # or the shim (also bootstraps uv):
-curl -fsSL https://raw.githubusercontent.com/jedzill4/scaffolding/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/install.sh | bash
 ```
 
 The CLI is **clean-adds-only**: it never edits, merges, reorders, or overwrites
@@ -119,12 +119,12 @@ hand only if the file conflicts). Keep `.env.schema` tracked:
 ### `prek.toml`
 
 Additive only. Generic hooks always; Python hooks
-([prek-python.toml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/prek-python.toml))
+([prek-python.toml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/prek-python.toml))
 only for Python repos. Templates:
 
-- [prek-generic.toml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/prek-generic.toml)
-- [prek-python.toml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/prek-python.toml)
-- [pyproject-template.toml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/pyproject-template.toml)
+- [prek-generic.toml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/prek-generic.toml)
+- [prek-python.toml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/prek-python.toml)
+- [pyproject-template.toml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/pyproject-template.toml)
 
 If a Python repo has no `pyproject.toml`, the CLI creates one from the template
 with a guided `name`/`description`. If it exists, only add missing tool sections —
@@ -136,8 +136,8 @@ The `ast-grep` hook in `prek-python.toml` runs `ast-grep scan`, which needs a
 root `sgconfig.yml` pointing at a rule dir. The CLI auto-includes `ast-grep` when
 `prek` is selected on a Python repo. When merging by hand, add both additively:
 
-- [sgconfig-template.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/sgconfig-template.yml) → root `sgconfig.yml` (`ruleDirs: [ast-grep/rules]`)
-- starter rules from [templates/ast-grep-rules/](https://github.com/jedzill4/scaffolding/tree/main/scaffolding/templates/ast-grep-rules) → `ast-grep/rules/` (`no-dict-call-return`, `no-dict-literal-return`, `no-dict-return-annotation`).
+- [sgconfig-template.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/sgconfig-template.yml) → root `sgconfig.yml` (`ruleDirs: [ast-grep/rules]`)
+- starter rules from [templates/ast-grep-rules/](https://github.com/collectiveai-team/scaffolding/tree/main/scaffolding/templates/ast-grep-rules) → `ast-grep/rules/` (`no-dict-call-return`, `no-dict-literal-return`, `no-dict-return-annotation`).
 
 ### GitHub Actions CI
 
@@ -146,12 +146,12 @@ selects parts. House style derived from `aymurai-asr`: `astral-sh/setup-uv@v5`
 pinned, `actions/checkout@v4`, a `concurrency` group, least-privilege
 `permissions`. Templates:
 
-- [zizmor.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/github/workflows/zizmor.yml) — workflow static analysis (any repo).
-- [tests.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/github/workflows/tests.yml) — lint/type-check/test (Python `uv` repos).
-- [pip-audit.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/github/workflows/pip-audit.yml) — dependency vuln scan (Python `uv` repos).
-- [dependabot.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/github/dependabot.yml) — weekly updates (Python `uv` repos).
-- [docker.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/github/workflows/docker.yml) — build/push to GHCR. Added only with a root `Dockerfile` **and** a public repo; the CLI skips it on private/internal repos with a GHCR-billing notice.
-- Publish-only (opt-in, placeholders to fill): [release.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/github/workflows/release.yml), [pypi.yml](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/github/workflows/pypi.yml) — public Python packages with Trusted Publishing only.
+- [zizmor.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/zizmor.yml) — workflow static analysis (any repo).
+- [tests.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/tests.yml) — lint/type-check/test (Python `uv` repos).
+- [pip-audit.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/pip-audit.yml) — dependency vuln scan (Python `uv` repos).
+- [dependabot.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/dependabot.yml) — weekly updates (Python `uv` repos).
+- [docker.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/docker.yml) — build/push to GHCR. Added only with a root `Dockerfile` **and** a public repo; the CLI skips it on private/internal repos with a GHCR-billing notice.
+- Publish-only (opt-in, placeholders to fill): [release.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/release.yml), [pypi.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/pypi.yml) — public Python packages with Trusted Publishing only.
 
 Never overwrite an existing workflow; if a target exists, leave it and suggest
 additive changes the user approves. Bump stale pinned action/tool versions.
@@ -164,13 +164,13 @@ is the exception — it reads `CLAUDE.md` + `.claude/skills`, so it is bridged w
 symlinks.
 
 - **opencode** → repo-root `opencode.jsonc` from
-  [opencode-template.jsonc](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/opencode-template.jsonc).
+  [opencode-template.jsonc](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/opencode-template.jsonc).
   Merge additively: add only missing keys, plugin entries, and permission rules;
   preserve the user's values. Sets `$schema`, the `opencode-sessions-explorer` and
   `opencode-varlock@latest` plugins, and `permission` rules denying secret access
   (`.env*`, `*.pem`, `*.key`, `*credentials*`, `varlock.config`).
 - **claude-code** → `.claude/settings.json` from
-  [claude-settings-template.json](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/claude-settings-template.json)
+  [claude-settings-template.json](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/claude-settings-template.json)
   (a `permissions.deny`/`allow` mirror of the opencode secret rules), plus two
   clean-adds-only symlinks: `CLAUDE.md` → `AGENTS.md` and `.claude/skills` →
   `.agents/skills`. If either path already exists it is deferred — bridge by hand
@@ -208,7 +208,7 @@ never `.env`.
 ### `AGENTS.md`
 
 The core task: the managed `## Repo Workspace Defaults` section, copied verbatim
-from [agents-workspace-defaults.md](https://raw.githubusercontent.com/jedzill4/scaffolding/main/scaffolding/templates/agents-workspace-defaults.md).
+from [agents-workspace-defaults.md](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/agents-workspace-defaults.md).
 The CLI appends it when absent and skips when the marker is present. If the
 section exists but needs changes, update only the lines inside it and preserve
 everything else. Do not edit `CLAUDE.md` during bootstrap unless asked.
@@ -223,7 +223,7 @@ skills, then this repo's recurring local skills (`journalist`, `handoff`):
 
 ```bash
 npx skills add mattpocock/skills --agent opencode --yes --skill setup-matt-pocock-skills diagnose grill-with-docs triage improve-codebase-architecture tdd to-issues to-prd zoom-out prototype grill-me write-a-skill
-npx skills add jedzill4/scaffolding --agent opencode --yes --skill journalist handoff
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill journalist handoff
 npx skills add dmno-dev/varlock --agent opencode --yes
 ```
 

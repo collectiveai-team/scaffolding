@@ -2,7 +2,7 @@
 
 **Code:** `CES-4` &nbsp;·&nbsp; **Slug:** `api-schemas-extra-forbid` &nbsp;·&nbsp; **Enforced by:**
 ast-grep (`warning`, placement-scoped) &nbsp;·&nbsp; **Tracker:**
-[#4](https://github.com/jedzill4/scaffolding/issues/4)
+[#4](https://github.com/collectiveai-team/scaffolding/issues/4)
 
 ## Directive
 

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/jedzill4/scaffolding/releases"><img alt="Release" src="https://img.shields.io/github/v/release/jedzill4/scaffolding?logo=github" /></a>
+  <a href="https://github.com/collectiveai-team/scaffolding/releases"><img alt="Release" src="https://img.shields.io/github/v/release/collectiveai-team/scaffolding?logo=github" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white" alt="Python 3.11+"></a>
   <a href="https://opencode.ai/"><img src="https://img.shields.io/badge/Agents-opencode%20%C2%B7%20claude--code%20%C2%B7%20codex-1d1d1d?logo=anthropic&logoColor=white" alt="opencode · claude-code · codex"></a>
   <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/Install-uvx%20%C2%B7%20curl-261230?logo=astral&logoColor=white" alt="Install via uvx or curl" /></a>
@@ -16,7 +16,7 @@
 
 ---
 
-**Source Code**: [https://github.com/jedzill4/scaffolding](https://github.com/jedzill4/scaffolding)
+**Source Code**: [https://github.com/collectiveai-team/scaffolding](https://github.com/collectiveai-team/scaffolding)
 
 ---
 
@@ -46,7 +46,7 @@ detection, and per-item conflict resolution. The CLI does the deterministic
 clean-adds; the agent drives it and handles merges. Point your agent at the guide:
 
 > Set up this repo by following the instructions here:
-> `https://raw.githubusercontent.com/jedzill4/scaffolding/main/guide.md`
+> `https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/guide.md`
 > Don't summarize it — follow every step.
 
 **New / empty repo (fast path): run the CLI directly.** It does clean adds only
@@ -55,14 +55,14 @@ and refuses to touch existing files, deferring any merge to the agent.
 Straight from git via `uvx` (no PyPI):
 
 ```bash
-uvx --from git+https://github.com/jedzill4/scaffolding scaffolding install
+uvx --from git+https://github.com/collectiveai-team/scaffolding scaffolding install
 ```
 
 Or via the bootstrap shim (also installs `uv` if missing — preserves the classic
 one-liner):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jedzill4/scaffolding/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/install.sh | bash
 ```
 
 The installer is idempotent — safe to re-run. Existing files are never edited or
@@ -106,7 +106,7 @@ npx skills add mattpocock/skills --agent opencode --yes --skill setup-matt-pococ
 Then install my local skills from this repo:
 
 ```bash
-npx skills add jedzill4/scaffolding --agent opencode --yes --skill journalist handoff
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill journalist handoff
 ```
 
 If installing from a checkout, run from this repo:
