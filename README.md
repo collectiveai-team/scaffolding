@@ -100,19 +100,19 @@ shared `.agents/skills` standard (read by opencode + codex); selecting
 Install selected upstream skills from Matt Pocock:
 
 ```bash
-npx skills add mattpocock/skills --agent opencode --yes --skill setup-matt-pocock-skills diagnose grill-with-docs triage improve-codebase-architecture tdd to-issues to-prd zoom-out prototype grill-me write-a-skill
+npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
 ```
 
 Then install my local skills from this repo:
 
 ```bash
-npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill journalist handoff
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
 ```
 
 If installing from a checkout, run from this repo:
 
 ```bash
-npx skills add . --agent opencode --yes --skill journalist handoff --full-depth
+npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth
 ```
 
 Skills install once into `.agents/skills`; claude-code reaches them via the
@@ -121,11 +121,20 @@ the installer with `--agent claude-code` / `--agent codex`.
 
 ## Upstream skills from Matt Pocock
 
-- `diagnose`, `tdd` — engineering quality workflows.
-- `to-prd`, `to-issues`, `triage` — planning and issue workflows.
-- `prototype` — throwaway code/UI prototyping.
-- `improve-codebase-architecture`, `zoom-out` — architecture and system understanding workflows.
-- `grill-me`, `grill-with-docs`, `write-a-skill` — meta/collaboration workflows.
+User-invoked engineering workflows:
+
+- `grill-with-docs`, `triage`, `improve-codebase-architecture`, `setup-matt-pocock-skills`.
+- `to-spec`, `to-tickets`, `implement`, `wayfinder`.
+
+Model-invoked engineering workflows:
+
+- `prototype`, `diagnosing-bugs`, `research`, `tdd`.
+- `domain-modeling`, `codebase-design`, `code-review`, `resolving-merge-conflicts`.
+
+Productivity workflows:
+
+- User-invoked: `grill-me`, `teach`, `writing-great-skills`.
+- Model-invoked: `grilling`.
 
 ## What's in this repo
 
@@ -137,6 +146,7 @@ the installer with `--agent claude-code` / `--agent codex`.
 - `guide.md` — the agentic-install guide (judgment layer).
 - `skills/productivity/journalist` — local daily session journals under `.journals/`.
 - `skills/productivity/handoff` — compact the current session into a temp-dir handoff for another agent.
+- `skills/productivity/ask-user` — route a situation to the smallest suitable installed workflow.
 - `docs/engineering-standards.md` — **CES (Collective Engineering Standard)**: how house
   rules are coded, cited (`CES-<issue#>` + slug), and shipped. Single source of truth,
   referenced by `AGENTS.md`.
