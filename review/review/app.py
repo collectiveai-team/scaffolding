@@ -318,8 +318,10 @@ class DetailScreen(Screen):
         parts = [body, "---", f"## Comments ({len(detail.comments)})"]
         if not detail.comments:
             parts.append("_no comments yet_")
-        for c in detail.comments:
-            parts.append(f"**@{c.author}** · {c.when}\n\n{cls._linkify(c.body)}")
+        parts.extend(
+            f"**@{comment.author}** · {comment.when}\n\n{cls._linkify(comment.body)}"
+            for comment in detail.comments
+        )
         return "\n\n".join(parts)
 
     @work(thread=True, exclusive=True, group="load_body")
