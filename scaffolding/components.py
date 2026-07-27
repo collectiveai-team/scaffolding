@@ -78,19 +78,28 @@ ASTGREP_RULES = [
     "arch-database-package",
 ]
 MATTPOCOCK_SKILLS = [
-    "setup-matt-pocock-skills",
-    "diagnose",
     "grill-with-docs",
     "triage",
     "improve-codebase-architecture",
-    "tdd",
-    "to-issues",
-    "to-prd",
-    "zoom-out",
+    "setup-matt-pocock-skills",
+    "to-spec",
+    "to-tickets",
+    "implement",
+    "wayfinder",
     "prototype",
+    "diagnosing-bugs",
+    "research",
+    "tdd",
+    "domain-modeling",
+    "codebase-design",
+    "code-review",
+    "resolving-merge-conflicts",
     "grill-me",
-    "write-a-skill",
+    "teach",
+    "writing-great-skills",
+    "grilling",
 ]
+LOCAL_SKILLS = ["ask-user", "journalist", "handoff"]
 DEFAULT_CI_PARTS = ["tests", "security", "docker"]
 # "opencode" is opt-in only (off by default): it needs repo secrets and the
 # OpenCode GitHub App installed, so it is never added unless explicitly chosen.
@@ -516,14 +525,13 @@ def plan_skills(ctx: Context) -> list[Op]:
             install_agent,
             "--yes",
             "--skill",
-            "journalist",
-            "handoff",
+            *LOCAL_SKILLS,
         ],
         ["npx", "skills", "add", "dmno-dev/varlock", "--agent", install_agent, "--yes"],
     ]
     labels = [
         f"matt pocock skills ({AGENTS_SKILLS_DIR})",
-        f"local skills: journalist handoff ({AGENTS_SKILLS_DIR})",
+        f"local skills: {' '.join(LOCAL_SKILLS)} ({AGENTS_SKILLS_DIR})",
         f"dmno-dev/varlock skill ({AGENTS_SKILLS_DIR})",
     ]
     return [

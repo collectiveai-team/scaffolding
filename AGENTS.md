@@ -13,7 +13,7 @@
   `collectiveai-team/scaffolding` on `main`.
 - `guide.md` — the agentic-install guide (judgment layer that drives the CLI and
   handles merges). Keep template raw URLs pointing at `collectiveai-team/scaffolding`.
-- `skills/` — actual installed skills (`journalist`, `handoff`).
+- `skills/` — actual installed skills (`ask-user`, `journalist`, `handoff`).
 
 Agent targets are multi-valued (`--agent`, repeatable: `opencode`/`claude-code`/
 `codex`). The `agent-config` component writes per-agent config — `opencode.jsonc`

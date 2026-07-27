@@ -219,16 +219,16 @@ Skills install **once** into the shared `.agents/skills` standard (read by
 opencode + codex). When `claude-code` is selected, the `agent-config` component's
 `.claude/skills` → `.agents/skills` symlink makes the same skills visible to
 Claude — do **not** re-run the installer per agent. Install the curated upstream
-skills, then this repo's recurring local skills (`journalist`, `handoff`):
+skills, then this repo's recurring local skills (`ask-user`, `journalist`, `handoff`):
 
 ```bash
-npx skills add mattpocock/skills --agent opencode --yes --skill setup-matt-pocock-skills diagnose grill-with-docs triage improve-codebase-architecture tdd to-issues to-prd zoom-out prototype grill-me write-a-skill
-npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill journalist handoff
+npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
 npx skills add dmno-dev/varlock --agent opencode --yes
 ```
 
 From a local checkout, install local skills with
-`npx skills add . --agent opencode --yes --skill journalist handoff --full-depth`.
+`npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth`.
 
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering
