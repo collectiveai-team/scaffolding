@@ -142,9 +142,10 @@ root `sgconfig.yml` pointing at a rule dir. The CLI auto-includes `ast-grep` whe
 ### GitHub Actions CI
 
 Opt-in (Tier 2). `scaffolding install ci --ci-parts tests,security,docker,publish`
-selects parts. House style derived from `aymurai-asr`: `astral-sh/setup-uv@v5`
-pinned, `actions/checkout@v4`, a `concurrency` group, least-privilege
-`permissions`. Templates:
+selects parts. House style derived from `aymurai-asr`: every `uses:` pinned to a
+tag (never a branch) — note `astral-sh/setup-uv` must be pinned to an exact
+version like `@v8.3.2`, since it stopped publishing major tags at v8.0.0 — plus a
+`concurrency` group and least-privilege `permissions`. Templates:
 
 - [zizmor.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/zizmor.yml) — workflow static analysis (any repo).
 - [tests.yml](https://raw.githubusercontent.com/collectiveai-team/scaffolding/main/scaffolding/templates/github/workflows/tests.yml) — lint/type-check/test (Python `uv` repos).
