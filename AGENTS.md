@@ -79,6 +79,8 @@ judgment; `[snippet]` ships canonical code under `.agents/snippets/` (in target 
   `BaseModel`, never a raw `dict`. → `@.agents/rules/no-dict.md`
 - **CES-71 · keep files small** `[prek]` — `file-size-guard` warns at 400 lines, errors at 700.
   → `@.agents/rules/file-size-guard.md`
+- **CES-107 · track the skills manifest** `[script]` — commit `skills-lock.json`; `.agents/skills/`
+  is derived and gitignored; install restores from it. → `@.agents/rules/skills-manifest.md`
 - **CES-45 · use the house get_logger** `[ast-grep]` — no direct `logging.getLogger`. →
   `@.agents/rules/log-get-logger.md`
 - **CES-46 · libraries log, they don't print** `[ast-grep]` — no `print()` in library code;

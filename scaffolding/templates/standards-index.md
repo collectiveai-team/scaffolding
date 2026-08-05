@@ -20,6 +20,10 @@ rules are reviewer/agent judgment; `[snippet]` ships canonical drop-in code. Ful
 - **CES-71 · keep files small** `[prek]` — split a module before it grows; the
   `file-size-guard` hook warns at 400 lines and errors at 700. A persistently large file is a
   design smell, not a limit to raise. → `@.agents/rules/file-size-guard.md`
+- **CES-107 · track the skills manifest** `[script]` — commit `skills-lock.json`; `.agents/skills/`
+  is derived from it and stays gitignored. Install restores from the manifest. It pins no version
+  and verifies no hash, so call it a manifest, not a lock. Slug: `skills-manifest`. →
+  `@.agents/rules/skills-manifest.md`
 - **CES-45 · use the house get_logger** `[ast-grep]` — never call `logging.getLogger` directly;
   acquire loggers via `get_logger` from `core/logger.py`. Slug: `log-get-logger`. →
   `@.agents/rules/log-get-logger.md`

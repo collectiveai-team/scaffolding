@@ -76,6 +76,9 @@ def _resolve_decisions(plan: Plan, settings: Settings, decisions: Decisions) -> 
             value = prompts.checkbox(dec.question, ALL_CI_PARTS, DEFAULT_CI_PARTS, assume_yes=ay)
         elif dec.key == "varlock":
             value = prompts.confirm(dec.question, False, assume_yes=ay)
+        elif dec.key.startswith("skills_"):
+            # CES-107: merging is the default, but consent is always asked.
+            value = prompts.confirm(dec.question, dec.default == "yes", assume_yes=ay)
         else:
             continue
         setattr(decisions, dec.key, value)

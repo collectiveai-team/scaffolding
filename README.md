@@ -97,22 +97,28 @@ These are real skills you install once and use repeatedly. They land in the
 shared `.agents/skills` standard (read by opencode + codex); selecting
 `claude-code` bridges them via the `.claude/skills` → `.agents/skills` symlink.
 
-Install selected upstream skills from Matt Pocock:
+Which skills a repo uses is declared in **`skills-lock.json`, the tracked skills
+manifest** (CES-107). `.agents/skills/` is derived from it and stays gitignored.
+`scaffolding install` restores from the manifest rather than re-fetching a
+hardcoded list:
+
+```bash
+npx skills experimental_install
+```
+
+Despite the filename the manifest pins no version and verifies no hash, so it
+gives set-level reproducibility (which skills, from where) and not version-level.
+It is a manifest, not a lock.
+
+A repo with no manifest gets the house baseline seeded, which creates one. A repo
+that already has skills installed is offered adoption. A repo whose manifest is
+gitignored is offered an un-ignore. Every offer defaults to yes and is always
+asked, so `--yes` converges without prompting. To seed by hand:
 
 ```bash
 npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
-```
-
-Then install my local skills from this repo:
-
-```bash
 npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
-```
-
-If installing from a checkout, run from this repo:
-
-```bash
-npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth
+npx skills add dmno-dev/varlock --agent opencode --yes
 ```
 
 Skills install once into `.agents/skills`; claude-code reaches them via the
