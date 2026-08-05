@@ -35,7 +35,7 @@ class Op:
     """One planned operation. Plan computes everything; apply just executes."""
 
     component: str
-    kind: str  # write | append | symlink | run | noop
+    kind: str  # write | append | symlink | unignore | run | noop
     target: str
     disposition: Disposition
     detail: str = ""
@@ -43,6 +43,10 @@ class Op:
     content: str | None = None
     cmd: list[str] | None = None
     optional: bool = False
+    # Post-condition for a run op (CES-107): skill names that MUST appear in the
+    # manifest afterwards. Set => the op is fatal when it runs and does not deliver,
+    # because a silently-empty install is the failure mode this exists to catch.
+    expect_skills: list[str] | None = None
 
 
 @dataclass
@@ -63,6 +67,11 @@ class Decisions(BaseModel):
     pyproject_description: str | None = None
     ci_parts: list[str] | None = None
     varlock: bool | None = None
+    # CES-107 skills-manifest consent. All three default to merging (yes) when
+    # unanswered, but they are always asked in an interactive install.
+    skills_top_up: bool | None = None
+    skills_unignore: bool | None = None
+    skills_adopt: bool | None = None
 
 
 class OpView(BaseModel):

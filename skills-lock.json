@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "skills": {
+    "ask-user": {
+      "source": ".",
+      "sourceType": "local"
+    },
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "codebase-design": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "diagnosing-bugs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "domain-modeling": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "grill-me": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "grill-with-docs": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "grilling": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "handoff": {
+      "source": ".",
+      "sourceType": "local"
+    },
+    "implement": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "journalist": {
+      "source": ".",
+      "sourceType": "local"
+    },
+    "prototype": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "research": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "resolving-merge-conflicts": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "setup-matt-pocock-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "tdd": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "teach": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "to-spec": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "to-tickets": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "triage": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "varlock": {
+      "source": "dmno-dev/varlock",
+      "sourceType": "github"
+    },
+    "wayfinder": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    },
+    "writing-great-skills": {
+      "source": "mattpocock/skills",
+      "sourceType": "github"
+    }
+  }
+}

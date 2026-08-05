@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from scaffolding import console
 from scaffolding.components import REGISTRY, Component, Context, lookup
 from scaffolding.plan import Decisions, Disposition, Op, Plan
+from scaffolding.skills import MANIFEST_FILE, UNIGNORE_WHITELIST, read_manifest
 
 if TYPE_CHECKING:
     from scaffolding.facts import Facts
@@ -139,6 +140,25 @@ def _apply_symlink(op: Op) -> None:
     link.symlink_to(op.content)
 
 
+def _apply_unignore(op: Op) -> None:
+    """Remove one literal, whitelisted line from .gitignore.
+
+    The single exception to clean-adds-only (CES-107). It is bounded by an explicit
+    literal whitelist rather than a pattern language, so "clean-adds plus a known
+    set of line removals" remains a checkable invariant.
+    """
+    if op.path is None or op.content is None:
+        raise ValueError(f"unignore op for {op.target} needs path and content")
+    line = op.content.strip()
+    if line not in UNIGNORE_WHITELIST:
+        raise ValueError(f"unignore refuses non-whitelisted line: {line!r}")
+    path = Path(op.path)
+    if not path.exists():
+        return
+    kept = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip() != line]
+    path.write_text("\n".join(kept) + "\n" if kept else "", encoding="utf-8")
+
+
 def _apply_add(op: Op) -> None:
     if op.kind == "write":
         _apply_write(op)
@@ -146,10 +166,35 @@ def _apply_add(op: Op) -> None:
         _apply_append(op)
     elif op.kind == "symlink":
         _apply_symlink(op)
+    elif op.kind == "unignore":
+        _apply_unignore(op)
 
 
-def _apply_run(op: Op) -> bool:
-    """Run op.cmd. Return True on success or non-fatal failure, False otherwise."""
+def _delivered(op: Op, root: Path) -> bool:
+    """Assert a run op's post-condition: the skills it promised are now declared."""
+    if not op.expect_skills:
+        return True
+    manifest = read_manifest(root)
+    declared = manifest.names if manifest else set()
+    missing = [n for n in op.expect_skills if n not in declared]
+    if not missing:
+        return True
+    console.warn(
+        f"{op.target}: ran but {MANIFEST_FILE} does not declare {', '.join(missing)} — "
+        "the skill names are wrong or upstream renamed them, and this repo got nothing"
+    )
+    return False
+
+
+def _apply_run(op: Op, root: Path) -> bool:
+    """Run op.cmd. Return True on success or non-fatal failure, False otherwise.
+
+    Two failure classes are deliberately distinguished (CES-107): a tool that cannot
+    RUN (missing binary, OSError) is never fatal, because offline installs are
+    legitimate. A tool that ran and did not deliver is fatal when the op declared a
+    post-condition — that means our own skill names are wrong, and swallowing it is
+    what let five weeks of installs silently install nothing.
+    """
     console.run(op.target)
     if op.cmd is None:
         console.warn(f"{op.target}: no command")
@@ -157,8 +202,10 @@ def _apply_run(op: Op) -> bool:
     try:
         ok = subprocess.run(op.cmd, check=False).returncode == 0
     except OSError as exc:
-        ok = False
-        console.warn(f"{op.target}: {exc}")
+        console.skip(f"{op.target}: {exc} — tool unavailable (non-fatal)")
+        return True
+    if op.expect_skills:
+        return _delivered(op, root)
     if ok:
         return True
     if op.optional:
@@ -179,7 +226,7 @@ def apply(plan: Plan, root: Path) -> int:
             _apply_add(op)
             console.add(label)
         elif d is Disposition.RUN:
-            errors += 0 if _apply_run(op) else 1
+            errors += 0 if _apply_run(op, root) else 1
         elif d is Disposition.DEFER:
             console.defer(label)
         elif d is Disposition.SKIP:

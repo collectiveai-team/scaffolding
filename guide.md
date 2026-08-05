@@ -219,17 +219,43 @@ everything else. Do not edit `CLAUDE.md` during bootstrap unless asked.
 Skills install **once** into the shared `.agents/skills` standard (read by
 opencode + codex). When `claude-code` is selected, the `agent-config` component's
 `.claude/skills` → `.agents/skills` symlink makes the same skills visible to
-Claude — do **not** re-run the installer per agent. Install the curated upstream
-skills, then this repo's recurring local skills (`ask-user`, `journalist`, `handoff`):
+Claude — do **not** re-run the installer per agent.
+
+**`skills-lock.json` is the tracked skills manifest** (CES-107): it declares which
+skills the repo uses and where they come from, and it is committed.
+`.agents/skills/` is *derived* from it and stays gitignored. Despite the filename
+it pins no version and verifies no hash — it buys set-level reproducibility
+(which skills, from where), not version-level. Call it a manifest, not a lock.
+
+The `skills` component picks one of four paths:
+
+| Repo state | What happens |
+| --- | --- |
+| Manifest tracked | restore, then offer to top up missing house-baseline skills |
+| Manifest gitignored | offer to un-ignore it, then as above |
+| Skills installed, no manifest | offer to adopt them into a manifest, then restore |
+| Nothing | seed the house baseline, which creates the manifest |
+
+Each offer is a decision defaulting to **yes**, so `--yes` and non-interactive runs
+converge without prompting. Restore is:
 
 ```bash
-npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
-npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
-npx skills add dmno-dev/varlock --agent opencode --yes
+npx skills experimental_install
 ```
 
-From a local checkout, install local skills with
-`npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth`.
+Seeding still uses `npx skills add <source> --agent opencode --yes --skill …`, but
+those ops now assert a post-condition: if the command runs and the manifest does
+not end up declaring the requested skills, the install **fails loudly** instead of
+reporting success. A missing `npx` is still a non-fatal skip.
+
+Adoption resolves installed names against the house baseline. Provenance is not
+recoverable from disk — an installed skill directory holds only `SKILL.md`, and
+without a manifest `skills list --json` reports `source: null` — so a skill outside
+the baseline is reported as unresolvable and needs its entry added by hand. It is
+never guessed.
+
+Skills this repo *authors* are declared with `"sourceType": "local"` so restore
+reads the working tree instead of overwriting them with the published copy.
 
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering
@@ -242,9 +268,10 @@ tracker when the user explicitly wants it.
 
 Run `scaffolding check` — it asserts the completeness checklist (gitignore
 entries incl. `!.env.schema`; prek `betterleaks` hook; `.env.schema` tracked and
-`.env` ignored; ast-grep config when the hook is present; the `AGENTS.md` section,
-which is the only universal requirement). Agent config is validated **only when
-present**: `opencode.jsonc` (schema/plugin/permission), `.claude/settings.json`
+`.env` ignored; ast-grep config when the hook is present; the skills manifest
+present, not gitignored, tracked, and matching `.agents/skills/`; the `AGENTS.md`
+section, which is the only universal requirement). Agent config is validated
+**only when present**: `opencode.jsonc` (schema/plugin/permission), `.claude/settings.json`
 (secret `permissions.deny`), and `CLAUDE.md` → `AGENTS.md`. Then confirm any
 deferred merges you applied by hand preserved all existing content, and that no
 existing file, key, array item, or comment was removed without explicit user

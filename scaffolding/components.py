@@ -17,8 +17,16 @@ from scaffolding.agent_config import (
     plan_agent_config,
     register_agents_decision,
 )
+from scaffolding.facts import gitignored
 from scaffolding.ops import write_if_absent
 from scaffolding.plan import Agent, Decision, Decisions, Disposition, Op
+from scaffolding.skills import (
+    MANIFEST_FILE,
+    SkillsPlanInput,
+    installed_names,
+    manifest_path,
+    plan_manifest_ops,
+)
 from scaffolding.templates_registry import template_text
 
 if TYPE_CHECKING:
@@ -28,7 +36,18 @@ if TYPE_CHECKING:
     from scaffolding.facts import Facts
     from scaffolding.settings import Settings
 
-GITIGNORE_ENTRIES = [".env", "!.env.schema", ".tmp/", ".scratch/", ".worktrees/", ".journals/"]
+# .agents/skills/ is DERIVED from the tracked skills manifest (CES-107), so it is
+# ignored. skills-lock.json itself must never appear here — it is the tracked
+# declaration, and the `skills` component will offer to un-ignore it if it is.
+GITIGNORE_ENTRIES = [
+    ".env",
+    "!.env.schema",
+    ".tmp/",
+    ".scratch/",
+    ".worktrees/",
+    ".journals/",
+    ".agents/skills/",
+]
 AGENTS_MARKER = "## Repo Workspace Defaults"
 # Marker-gated section the `standards` component owns in AGENTS.md (sibling to AGENTS_MARKER).
 STANDARDS_MARKER = "## Engineering Standards"
@@ -37,6 +56,7 @@ STANDARDS_MARKER = "## Engineering Standards"
 STANDARDS_RULE_DETAILS = [
     "no-dict",
     "file-size-guard",
+    "skills-manifest",
     "log-get-logger",
     "log-no-print",
     "core-logger",
@@ -77,29 +97,6 @@ ASTGREP_RULES = [
     "cli-typed-framework",
     "arch-database-package",
 ]
-MATTPOCOCK_SKILLS = [
-    "grill-with-docs",
-    "triage",
-    "improve-codebase-architecture",
-    "setup-matt-pocock-skills",
-    "to-spec",
-    "to-tickets",
-    "implement",
-    "wayfinder",
-    "prototype",
-    "diagnosing-bugs",
-    "research",
-    "tdd",
-    "domain-modeling",
-    "codebase-design",
-    "code-review",
-    "resolving-merge-conflicts",
-    "grill-me",
-    "teach",
-    "writing-great-skills",
-    "grilling",
-]
-LOCAL_SKILLS = ["ask-user", "journalist", "handoff"]
 DEFAULT_CI_PARTS = ["tests", "security", "docker"]
 # "opencode" is opt-in only (off by default): it needs repo secrets and the
 # OpenCode GitHub App installed, so it is never added unless explicitly chosen.
@@ -494,50 +491,75 @@ def plan_standards(ctx: Context) -> list[Op]:
     return ops
 
 
+def _decided(answer: bool | None, default: bool) -> bool:
+    """Unanswered decisions take their default — merging, per CES-107."""
+    return default if answer is None else answer
+
+
+def _register_skills_decisions(
+    ctx: Context, *, ignored: bool, manifest_exists: bool, has_installed: bool
+) -> None:
+    """Ask before diverging from what the repo already declares (CES-30).
+
+    Only the questions the repo's state actually raises: a repo with no manifest and
+    no installed skills is being seeded, and has nothing to consent to.
+    """
+    if manifest_exists:
+        ctx.add_decision(
+            Decision(
+                2,
+                "skills_top_up",
+                "Add house-baseline skills this repo's manifest is missing?",
+                "yes",
+            )
+        )
+        if ignored:
+            ctx.add_decision(
+                Decision(
+                    2,
+                    "skills_unignore",
+                    f"Stop gitignoring {MANIFEST_FILE} so the skills manifest can be tracked?",
+                    "yes",
+                )
+            )
+    elif has_installed:
+        ctx.add_decision(
+            Decision(
+                2, "skills_adopt", "Adopt the installed skills into a tracked manifest?", "yes"
+            )
+        )
+
+
 def plan_skills(ctx: Context) -> list[Op]:
     if ctx.settings.skip_skills:
         return [Op("skills", "noop", "skills", Disposition.SKIP, detail="SKIP_SKILLS set")]
     if not ctx.facts.has_npx:
         return [Op("skills", "noop", "skills", Disposition.SKIP, detail="npx not found")]
     register_agents_decision(ctx)
-    # Install ONCE into the shared .agents/skills standard (read by opencode + codex).
-    # Claude reaches the same skills via the .claude/skills -> .agents/skills symlink that
-    # the agent-config component creates when claude-code is selected.
-    install_agent = Agent.OPENCODE.value
-    cmds = [
-        [
-            "npx",
-            "skills",
-            "add",
-            "mattpocock/skills",
-            "--agent",
-            install_agent,
-            "--yes",
-            "--skill",
-            *MATTPOCOCK_SKILLS,
-        ],
-        [
-            "npx",
-            "skills",
-            "add",
-            "collectiveai-team/scaffolding",
-            "--agent",
-            install_agent,
-            "--yes",
-            "--skill",
-            *LOCAL_SKILLS,
-        ],
-        ["npx", "skills", "add", "dmno-dev/varlock", "--agent", install_agent, "--yes"],
-    ]
-    labels = [
-        f"matt pocock skills ({AGENTS_SKILLS_DIR})",
-        f"local skills: {' '.join(LOCAL_SKILLS)} ({AGENTS_SKILLS_DIR})",
-        f"dmno-dev/varlock skill ({AGENTS_SKILLS_DIR})",
-    ]
-    return [
-        Op("skills", "run", labels[i], Disposition.RUN, cmd=cmds[i], optional=True)
-        for i in range(len(cmds))
-    ]
+
+    manifest_exists = manifest_path(ctx.root).exists()
+    ignored = manifest_exists and gitignored(ctx.root, MANIFEST_FILE)
+    _register_skills_decisions(
+        ctx,
+        ignored=ignored,
+        manifest_exists=manifest_exists,
+        has_installed=bool(installed_names(ctx.root, AGENTS_SKILLS_DIR)),
+    )
+
+    # Skills install ONCE into the shared .agents/skills standard (read by opencode +
+    # codex). Claude reaches the same files via the .claude/skills -> .agents/skills
+    # symlink that agent-config creates, so this is never re-run per agent.
+    return plan_manifest_ops(
+        SkillsPlanInput(
+            root=ctx.root,
+            agent=Agent.OPENCODE.value,
+            skills_dir=AGENTS_SKILLS_DIR,
+            manifest_ignored=ignored,
+            top_up=_decided(ctx.decisions.skills_top_up, True),
+            unignore=_decided(ctx.decisions.skills_unignore, True),
+            adopt=_decided(ctx.decisions.skills_adopt, True),
+        )
+    )
 
 
 def plan_varlock(ctx: Context) -> list[Op]:

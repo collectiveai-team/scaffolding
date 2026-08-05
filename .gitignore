@@ -7,7 +7,8 @@
 # Curated CES rule docs are authored content referenced by the tracked AGENTS.md index — keep
 # them versioned even though installed agent skills under .agents/ stay ignored.
 !.agents/rules/
-skills-lock.json
+# skills-lock.json is deliberately NOT ignored: it is the tracked skills manifest
+# (CES-107). .agents/skills/ stays ignored because it is derived from it.
 
 # python / build
 .venv/
