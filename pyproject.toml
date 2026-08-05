@@ -123,6 +123,7 @@ project-excludes = [
   "**/node_modules",
   "**/__pycache__",
   "**/.venv/**/*",
+  "**/.worktrees/**/*",
   "skills/**/*",
   "review/**/*",     # separate distribution with its own env/import-root
   # Bundled template payload: snippets/ drop-ins are shipped verbatim into target
