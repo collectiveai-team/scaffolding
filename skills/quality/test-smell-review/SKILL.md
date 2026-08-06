@@ -36,6 +36,18 @@ the full catalog, condensed and credited from the same source, and the
 (academic sources included). No subprocess, no API key, no Node — the agent
 running this skill applies the judgment itself.
 
+## If you're about to write a test, not just review one
+
+This skill is analysis-only (the upstream's "Mode A"). It deliberately does
+not port the upstream's test-authoring mode — that would duplicate this
+repo's existing `tdd` skill (red-green-refactor workflow, mocking guidance).
+Instead, borrow one discipline from it when writing a test, then self-check
+with Steps 1–4 below before calling it done: **derive the expected value from
+an independent source — the spec, a docstring, a hand-computed value — never
+from running the code once and copying its output.** A test built that way
+is a characterization test, and characterization tests can't fail when the
+code is wrong; that is exactly what this skill exists to catch.
+
 ## Step 0: run the deterministic scanner first, if installed
 
 If [`falsegreen`](https://github.com/vinicq/falsegreen) (`pip install
@@ -57,6 +69,14 @@ for. (`falsegreen` itself is proposed as a house prek hook separately —
 — so it may not be installed yet; if it isn't, apply `reference.md`'s
 structural catalog by hand instead of skipping it.)
 
+If a `[tool.falsegreen]` block exists in `pyproject.toml` (or `.falsegreen.toml`),
+read its `exclude`/`disable`/`severity` settings before judging — that
+project has already declared some patterns as intentional (a custom
+assertion helper, a layer override, a code turned off) for the deterministic
+scanner. Honor the same exclusions here rather than re-flagging what the
+project already decided isn't a smell for it. Do not invent a second,
+skill-only config file for this — one config surface, shared with Part A.
+
 ## Step 1: classify the test's intent
 
 Before judging the expected value, classify the test. Misclassifying here is
@@ -73,6 +93,33 @@ A failing spec/TDD test is not a false positive. A labeled characterization
 snapshot is not a frozen bug — do not flag case 18 or C14 against one. Ask
 the user if the intent isn't stated in the test name, docstring, or a nearby
 comment and it materially changes the verdict.
+
+## Step 1b: read the test level — do not guess
+
+Several codes (C6, C9, C14, and the semantic cases) are only judged correctly
+if the level is right. Read it from signals, do not assume "everything here
+is a unit test." Precedence, strongest signal wins:
+
+1. **A doubled boundary beats an import.** If `unittest.mock`/`patch`/
+   `monkeypatch`/`pytest-mock`/`responses`/`requests-mock`/`httpretty`/
+   `respx`/`moto`/`fakeredis` intercepts the boundary, the test is
+   unit/component **even if** a real client (`requests`, `boto3`,
+   SQLAlchemy) is imported — the mock *is* the boundary.
+2. **Else a real boundary makes it integration.** An in-process test client
+   (FastAPI `TestClient`, Flask `test_client`, Django `Client`), a real ORM
+   session against a real (even ephemeral/containerized) database, a real
+   queue/cache/storage client with no double.
+3. **Else a browser/mobile driver makes it E2E** (Playwright, Selenium,
+   Cypress, Appium).
+4. **No signal → unit.** Real, undoubled I/O in a test with no integration
+   signal is itself the smell (mystery guest / over-mocking-inverted, J3/J6)
+   — not a legitimate integration test that happens to lack a marker.
+
+Why it matters concretely: a bare truthiness check on a response object (C6)
+is a weak-check finding at unit level but *is* the real check at
+integration/E2E, where the response existing is the point. Getting the level
+wrong in either direction produces a wrong verdict, not just a miscategorized
+one.
 
 ## Step 2: apply the case catalog (see `reference.md`)
 
@@ -126,10 +173,10 @@ finding: it means a bug may be frozen as "correct". Before reporting it:
 
 - Boolean predicates (`isinstance(...)`, `.exists()`, `.is_dir()`) are real
   assertions, not weak truthiness checks (not C6).
-- At the integration/API/E2E level, a truthiness check on a response or a
-  rendered element often *is* the real check (the response existing is the
-  point) — do not apply unit-level strictness to a test deliberately crossing
-  an I/O boundary.
+- A fluent/library matcher (`hamcrest.assert_that`, assertpy, `numpy.testing.*`,
+  `pandas.testing.*`) is the real check even with no bare `assert` keyword —
+  absence of the keyword is not absence of verification (not C2/C2b; full
+  exemption list in `reference.md`).
 - A mock replacing a genuine external edge (DB, network, clock) is never
   case 10/S12; those apply only when the mock replaces the unit being tested.
 - `@given`/`@hypothesis`-decorated tests with no explicit `assert` are not
