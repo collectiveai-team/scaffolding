@@ -1,14 +1,15 @@
 # Detection Reference
 
-Full Python case catalog for `test-smell-review` (see `SKILL.md` for the
-protocol that uses this file). Every code below is a condensed, re-worded
-adaptation of a pattern documented in
+Full case catalog for `test-smell-review` (see `SKILL.md` for the protocol
+that uses this file) — Python and TypeScript/JavaScript, plus a
+language-agnostic path for anything else. Every code below is a condensed,
+re-worded adaptation of a pattern documented in
 [`vinicq/falsegreen-skill`](https://github.com/vinicq/falsegreen-skill)'s
-`reference.md` (MIT license) and its companion static scanner
-[`vinicq/falsegreen`](https://github.com/vinicq/falsegreen). Scoped to Python
-only here — this house's target repos are Python-first (see `docs/engineering-standards.md`);
-the upstream project also covers TypeScript/JavaScript/Robot Framework if a
-future repo needs that.
+`reference.md` (MIT license) and its companion static scanners
+[`vinicq/falsegreen`](https://github.com/vinicq/falsegreen) (Python) and
+[`vinicq/falsegreen-js`](https://github.com/vinicq/falsegreen-js) (TS/JS).
+The upstream project also covers Robot Framework if a future repo needs
+that — not adapted here, no target repo has asked for it yet.
 
 **Confidence:** `HIGH` = report it, no plausible legitimate reading. `LOW` =
 likely smell, note it but a legitimate reading can exist. `info` = opt-in
@@ -149,11 +150,105 @@ with pytest.raises(ZeroDivisionError, match="division by zero"):
 
 ---
 
+# TypeScript / JavaScript
+
+Runner-agnostic across Jest, Vitest, Mocha+Chai, Jasmine, AVA, `node:test`,
+Cypress, Playwright, and Testing Library — the codes below apply regardless
+of which one a project uses. Codes shared with Python keep the same `C`
+number where the smell is the same concept (e.g. `C5` tautology, `C7`
+self-compare); `JS*` codes are ecosystem-specific.
+
+## Structural codes (provable by a parser — `falsegreen-js` proves these if installed)
+
+| Code | Conf | Pattern |
+|---|---|---|
+| C2 | HIGH | Empty test body. |
+| C2b | LOW | Calls the unit but never asserts. Exempt: supertest/chai-http's own `.expect()` (`request(app).get("/").expect(200)`) *is* the assertion at the API layer. |
+| C5 | HIGH | Always-true: `expect(true).toBe(true)`, `assert(1)`. |
+| C6 | LOW | Weak check: `toBeTruthy()`/`toBeDefined()`, `.length > 0`. |
+| C7 | HIGH | Self-compare: `expect(x).toBe(x)`. |
+| C8 | LOW | Exact equality on a float. |
+| C9 | LOW | `toThrow()` with no error type or message. |
+| C16 | LOW | Depends on `Date.now()`/`Math.random()`/a fixed timer, unfrozen/unseeded. |
+| C18 | LOW | Stringified equality: comparing `String(x)`/`JSON.stringify(x)`/a template literal to a literal. |
+| C20 | HIGH | Assertion in dead code after `return`/`throw`. |
+| C21 | LOW | Every assertion in the test is conditional. |
+| C23 | LOW | Reads a real file at a literal path, or a hard-coded URL (mystery guest). |
+| C37 | LOW | Duplicate `it.each`/`test.each` case. |
+| C44 | HIGH | Numeric tautology on a length: `expect(x.length).toBeGreaterThanOrEqual(0)`. |
+| C48 | LOW | Dark patch: flips a test-mode flag (`process.env.NODE_ENV = "test"`) then asserts. |
+| CC | LOW | Commented-out assertion. |
+| JS1 | HIGH | Focused test (`it.only`/`fit`) — skips the rest of the suite. |
+| JS2 | HIGH | `expect(x)` called with no matcher chained. |
+| JS3 | LOW | A snapshot assertion is the *only* check. |
+| JS4 | LOW | Skipped test (`it.skip`/`xit`/`it.todo`). |
+| JS5 | LOW | An async query/event (`findBy*`, `waitFor`, user-event) is not awaited. |
+| JS6 | HIGH | Empty `describe`/`suite` block. |
+| JS7 | LOW | Assertion lives inside a non-awaited `setTimeout`/`.then()` callback. |
+| JS8 | LOW | Mocks the unit under test and asserts the mock directly (the TS/JS shape of semantic case 10, but statically provable here). |
+| JS9 | HIGH | Assertion inside a dead literal branch (`if (false) { ... }`). |
+| JS11 | LOW | `try/catch` swallows the assertion. |
+| JS13 | LOW | `queryBy*`/`queryAllBy*` (returns `null` when absent) used as a loose statement, never asserted. Not this code: `getBy*`/`getAllBy*`/`findBy*`/`findAllBy*` *throw* on absence, so they already are the assertion. |
+| JS15 | LOW | A comparison wrapped in a boolean matcher: `expect(a === b).toBe(true)` instead of `expect(a).toBe(b)`. |
+| JS17 | LOW | Commented-out test block (`// it(...)`). |
+| JS18 | LOW | `done` callback used instead of async/await (easy to forget to call `done()` on a failing path). |
+| JS21 | HIGH | A matcher is referenced but never called: `expect(x).toBe` with no `()`. |
+| JS22 | HIGH | Empty `it.each`/`test.each` table — zero cases generated. |
+| JS23 | HIGH | `expect.assertions(N)` declared with fewer unconditionally-reachable `expect()` calls than `N`. |
+| JS24 | LOW | Cypress `cy.get/find/contains(...)` as a query statement with no `.should`/`.and`/`.then` assertion chained. |
+| JS25 | HIGH | The only assertion sits inside an array-iterator callback (`forEach`/`map`/`filter`/`some`/`every`) — runs zero times on an empty collection. |
+| JS26 | LOW | Fake timers installed but never advanced (`runAllTimers`/`advanceTimersByTime`) — the scheduled callback never fires. |
+| JS27 | LOW | `toHaveBeenCalled*` is the sole oracle on a locally-created double — verifies wiring was called, not that it computed the right thing. |
+| JS29 | LOW | `expect(...).resolves`/`.rejects` chain used as a bare statement, not awaited/returned — the test finishes green before the matcher settles. |
+| JS30 | HIGH | Literal-vs-literal assertion: `expect(2).toBe(3)`, chai `expect(x).to.equal(y)` where both operands are fixed at parse time. |
+| JS31 | LOW | `try/catch` swallows a possible throw with no assertion on the exception — a unit that stops throwing still passes green. |
+
+**Diagnostic (opt-in, `info` only):** D1 assertion roulette, D3 duplicate
+assert, D4 untitled `it.each` cases, D6 `console.*` in a test, D7 anonymous
+test (blank/missing description), D8 magic number in an assertion, M2
+over-long test body.
+
+**Example (the two highest-prevalence patterns, per Jorge 2023's STEEL-tool
+survey of 65 JS projects — 92.31% and 72.31% of projects respectively):**
+```typescript
+// BAD — C1-equivalent: assertion inside a branch that may never fire
+it("validates items", () => {
+    if (items.length) {
+        expect(items[0].valid).toBe(true);   // never runs if items is []
+    }
+});
+
+// BAD — C2b: calls the SUT, zero expect() calls anywhere in the body
+it("processes the order", () => {
+    const result = process(order);           // no expect() follows
+});
+
+// BAD — JS8 / semantic case 10: mocks the unit under test
+jest.mock("./calculator");
+import { add } from "./calculator";
+(add as jest.Mock).mockReturnValue(5);
+test("add", () => {
+    expect(add(2, 3)).toBe(5);                // asserting the mock, not real addition
+});
+
+// CLEAN
+test("add", () => {
+    expect(add(2, 3)).toBe(5);                // real function, real arithmetic
+});
+```
+
+---
+
 ## Semantic patterns — no parser can prove these; this is the skill's real value-add
 
 These need reading the test against its stated intent and the production
 code. Judgment only: never block a commit on one of these without showing
-the reasoning, per `SKILL.md`'s HIGH/LOW rule.
+the reasoning, per `SKILL.md`'s HIGH/LOW rule. **Language-agnostic** — the
+Python examples below translate directly to any other language: swap
+`unittest.mock`/`@patch` for `jest.mock`/`sinon`/Go's interface-based fakes,
+same judgment either way. This is also the section to apply for a language
+with no structural table above (Go, Rust, Java, ...) — see "Applying this to
+other languages" further down for worked examples in Go specifically.
 
 - **Case 10 (J3, HIGH) — Mocks the unit under test.** Patches the very
   function/class under test, then asserts the mock's own configured value.
@@ -222,9 +317,64 @@ the reasoning, per `SKILL.md`'s HIGH/LOW rule.
   model call (`assert judge_llm(...) == "yes"`), sharing the same blind spots
   as the thing being judged.
 
-Full detail on every one of these, plus TypeScript/JavaScript/Robot
-Framework coverage this repo doesn't currently need: see falsegreen-skill's
-own `reference.md` — https://github.com/vinicq/falsegreen-skill/blob/master/reference.md.
+Full detail on every one of these, plus Robot Framework coverage this repo
+doesn't currently need: see falsegreen-skill's own `reference.md` —
+https://github.com/vinicq/falsegreen-skill/blob/master/reference.md.
+
+---
+
+## Applying this to other languages (Go, Rust, Java, ...)
+
+No dedicated structural catalog exists for these — falsegreen's own family
+doesn't cover them either, so there's nothing upstream to adapt from. That
+does **not** mean skip the review: J1–J6 (`SKILL.md` Step 3) and the semantic
+patterns above are judgments about what a test *does*, not about a specific
+language's grammar, and they transfer directly. Two worked Go examples,
+written for this adaptation (not from falsegreen — flagging that distinction
+explicitly, per this file's own citation standard):
+
+```go
+// BAD — J2/case 12: re-implements the production formula as "expected"
+func TestTotal(t *testing.T) {
+    price, rate := 100.0, 0.1
+    expected := price + price*rate     // re-derives the SUT's own formula
+    if got := CalculateTotal(price, rate); got != expected {
+        t.Errorf("got %v, want %v", got, expected)
+    }
+}
+// CLEAN — expected comes from the spec, not the formula
+func TestTotal(t *testing.T) {
+    if got := CalculateTotal(100.0, 0.1); got != 110.0 { // spec: 100 + 10% = 110
+        t.Errorf("got %v, want 110.0", got)
+    }
+}
+
+// BAD — J3/case 10: mocks the interface under test, asserts the mock's own value
+type mockAdder struct{ result int }
+func (m mockAdder) Add(a, b int) int { return m.result }
+func TestAdd(t *testing.T) {
+    m := mockAdder{result: 5}
+    if got := m.Add(2, 3); got != 5 {   // asserting the mock, not real addition
+        t.Errorf("got %v, want 5", got)
+    }
+}
+// CLEAN — exercises the real implementation
+func TestAdd(t *testing.T) {
+    if got := Add(2, 3); got != 5 {
+        t.Errorf("got %v, want 5", got)
+    }
+}
+```
+
+The same judgments apply to `testify`'s `assert.Equal`/`require.Equal`, a
+Rust `#[test]` with `assert_eq!`, or a JUnit `@Test` — J1 ("does the
+assertion run") still means "not dead code after an early `return`/`panic!`/
+exception," J7-equivalent self-comparison is still `assert_eq!(x, x)`,
+table-driven subtests (`t.Run(...)` in Go) still need J6 (no shared mutable
+state between subtests). If a language gets its own falsegreen-family
+scanner in the future, add a structural table for it here the same way the
+TS/JS section above was added — don't wait for that to apply the judgments
+by hand today.
 
 ---
 
@@ -232,20 +382,29 @@ own `reference.md` — https://github.com/vinicq/falsegreen-skill/blob/master/re
 
 - **[`vinicq/falsegreen-skill`](https://github.com/vinicq/falsegreen-skill)**
   (MIT) — source of the J1–J6 judgment framework and this entire case
-  catalog. This file is a condensed, Python-only, re-worded adaptation
-  credited here per its own license terms; the original is far more
-  complete (TS/JS/Robot, semantic exemption lists, authoring/fix modes).
+  catalog (Python and TS/JS sections above). This file is a condensed,
+  re-worded adaptation credited here per its own license terms; the
+  original is far more complete (Robot Framework, the full JS-series,
+  semantic exemption lists, authoring/fix modes). The Go examples in
+  "Applying this to other languages" above are **not** from falsegreen —
+  they're original to this adaptation, since no upstream Go catalog exists
+  to credit.
 - **[`vinicq/falsegreen`](https://github.com/vinicq/falsegreen)** (MIT) — the
   deterministic Python/pytest AST scanner that proves the structural half of
-  this catalog for free, no LLM needed. Proposed separately as a house prek
-  hook in [scaffolding#124](https://github.com/collectiveai-team/scaffolding/issues/124).
+  the Python catalog for free, no LLM needed. Proposed separately as a house
+  prek hook in [scaffolding#124](https://github.com/collectiveai-team/scaffolding/issues/124).
+- **[`vinicq/falsegreen-js`](https://github.com/vinicq/falsegreen-js)** (MIT)
+  — the TS/JS companion scanner; proves the structural half of the TS/JS
+  catalog above the same way.
 - **falsegreen's own `CREDITS.md`** cross-walks this taxonomy against the
   academic literature: Elvys Alves Soares, *A Multimethod Study of Test
   Smells: Cataloging, Removal, and New Types* (PhD thesis, UFPE, 2023) — the
   source of the "rotten green test" concept; Julien Delplanque et al.,
   *Rotten Green Tests*, ICSE 2019 — the term's origin; Tongjie Wang et al.,
   *PyNose: A Test Smell Detector for Python*, ASE 2021 (JetBrains Research)
-  — the closest prior academic Python-specific tool.
+  — the closest prior academic Python-specific tool; Dalton Nicodemos Jorge's
+  2023 UFCG thesis and the STEEL tool — the source of the TS/JS conditional-
+  assertion and zero-assertion prevalence figures cited above.
 - **[The Open Catalog of Test Smells](https://test-smell-catalog.readthedocs.io/)**
   — a community-maintained, 517-smell aggregator falsegreen itself
   cross-walks against; the reference to fall back on if a future gap isn't

@@ -1,6 +1,6 @@
 ---
 name: test-smell-review
-description: Review pytest/unittest tests for false-green smells — tests that pass without protecting anything (empty, assertion-free, tautological, mocking the unit under test, echoing a mock back to itself). Use after writing or editing test files, and when the user asks to review test quality, find weak tests, or check whether tests actually catch bugs.
+description: Review pytest/unittest, Jest/Vitest/Mocha, or any other language's tests for false-green smells — tests that pass without protecting anything (empty, assertion-free, tautological, mocking the unit under test, echoing a mock back to itself). Use after writing or editing test files, and when the user asks to review test quality, find weak tests, or check whether tests actually catch bugs.
 ---
 
 # Test Smell Review
@@ -48,34 +48,58 @@ from running the code once and copying its output.** A test built that way
 is a characterization test, and characterization tests can't fail when the
 code is wrong; that is exactly what this skill exists to catch.
 
-## Step 0: run the deterministic scanner first, if installed
+## Step 0a: detect the language and framework
 
-If [`falsegreen`](https://github.com/vinicq/falsegreen) (`pip install
-falsegreen`) is available in the project, run it on the changed test files
-before applying any judgment below — it proves the purely structural cases
-(empty test, no assertion, tautological assert, swallowed exception,
-sleep-in-test, and more — the "structural" rows in `reference.md`)
-deterministically, for free, with no LLM involved:
+- **Python:** `import pytest`/`import unittest`/`from unittest.mock import`,
+  `@pytest.mark.*`, `@patch`, plain `assert`/`self.assert*`.
+- **TypeScript / JavaScript:** `import { describe, it, expect } from ...`
+  (`@jest/globals`, `vitest`), `require('chai')`, global `describe()`/`it()`/
+  `test()`/`expect()`, mock cues `jest.fn()`/`vi.fn()`/`sinon.stub()`.
+  Runner-agnostic across Jest, Vitest, Mocha+Chai, Jasmine, AVA, `node:test`,
+  Cypress, Playwright, and Testing Library — `reference.md`'s TS/JS section
+  applies to all of them.
+- **Any other language (Go, Rust, Java, ...):** no dedicated structural
+  catalog exists here (see `reference.md`'s "Applying this to other
+  languages" section) — the language-agnostic J1–J6 judgments (Step 3) and
+  the semantic cases (Step 2) still apply directly. Do not skip the review
+  just because there's no matching table of codes.
+
+## Step 0b: run the deterministic scanner first, if installed
+
+Python's companion scanner is
+[`falsegreen`](https://github.com/vinicq/falsegreen); TS/JS's is
+[`falsegreen-js`](https://github.com/vinicq/falsegreen-js). If either is
+available, run it on the changed test files before applying any judgment
+below — it proves the purely structural cases (empty test, no assertion,
+tautological assert, swallowed exception, sleep-in-test, and more — the
+"structural"-labeled rows in `reference.md`) deterministically, for free,
+with no LLM involved:
 
 ```bash
-falsegreen tests/test_changed_file.py
+# Python — no install needed, matches this house's uv convention
+uvx falsegreen tests/test_changed_file.py
+
+# TypeScript / JavaScript — no install needed
+npx falsegreen-js tests/test_changed_file.test.ts
 ```
 
-Everything it flags is already proven by a parser; do not re-derive those
-findings by hand, and do not contradict them. Apply the judgment protocol
-below to what a parser cannot prove — that is what the rest of this skill is
-for. (`falsegreen` itself is proposed as a house prek hook separately —
+Everything either scanner flags is already proven by a parser; do not
+re-derive those findings by hand, and do not contradict them. Apply the
+judgment protocol below to what a parser cannot prove — that is what the
+rest of this skill is for. (`falsegreen` itself is proposed as a house prek
+hook separately —
 [scaffolding#124](https://github.com/collectiveai-team/scaffolding/issues/124)
 — so it may not be installed yet; if it isn't, apply `reference.md`'s
 structural catalog by hand instead of skipping it.)
 
-If a `[tool.falsegreen]` block exists in `pyproject.toml` (or `.falsegreen.toml`),
-read its `exclude`/`disable`/`severity` settings before judging — that
-project has already declared some patterns as intentional (a custom
-assertion helper, a layer override, a code turned off) for the deterministic
-scanner. Honor the same exclusions here rather than re-flagging what the
-project already decided isn't a smell for it. Do not invent a second,
-skill-only config file for this — one config surface, shared with Part A.
+If a `[tool.falsegreen]` block exists in `pyproject.toml` (or `.falsegreen.toml`;
+check for an equivalent JS-side config too), read its `exclude`/`disable`/
+`severity` settings before judging — that project has already declared some
+patterns as intentional (a custom assertion helper, a layer override, a code
+turned off) for the deterministic scanner. Honor the same exclusions here
+rather than re-flagging what the project already decided isn't a smell for
+it. Do not invent a second, skill-only config file for this — one config
+surface, shared with the scanner.
 
 ## Step 1: classify the test's intent
 
@@ -100,17 +124,22 @@ Several codes (C6, C9, C14, and the semantic cases) are only judged correctly
 if the level is right. Read it from signals, do not assume "everything here
 is a unit test." Precedence, strongest signal wins:
 
-1. **A doubled boundary beats an import.** If `unittest.mock`/`patch`/
+1. **A doubled boundary beats an import.** Python: `unittest.mock`/`patch`/
    `monkeypatch`/`pytest-mock`/`responses`/`requests-mock`/`httpretty`/
-   `respx`/`moto`/`fakeredis` intercepts the boundary, the test is
-   unit/component **even if** a real client (`requests`, `boto3`,
-   SQLAlchemy) is imported — the mock *is* the boundary.
-2. **Else a real boundary makes it integration.** An in-process test client
-   (FastAPI `TestClient`, Flask `test_client`, Django `Client`), a real ORM
-   session against a real (even ephemeral/containerized) database, a real
-   queue/cache/storage client with no double.
+   `respx`/`moto`/`fakeredis` intercepts the boundary. TS/JS:
+   `jest.mock`/`vi.mock`/`jest.fn`/`vi.spyOn`/`sinon`, `msw`, `nock`. Either
+   way, the test is unit/component **even if** a real client (`requests`,
+   `boto3`, `axios`, SQLAlchemy, Prisma) is imported — the mock *is* the
+   boundary.
+2. **Else a real boundary makes it integration.** Python: an in-process test
+   client (FastAPI `TestClient`, Flask `test_client`, Django `Client`), a real
+   ORM session against a real (even ephemeral/containerized) database. TS/JS:
+   supertest `request(app)`, Nest `Test.createTestingModule` + supertest, a
+   real DB driver/ORM (Prisma, TypeORM, `pg`, `mongoose`) with no double.
+   Either way: a real queue/cache/storage client with no double, still
+   integration.
 3. **Else a browser/mobile driver makes it E2E** (Playwright, Selenium,
-   Cypress, Appium).
+   Cypress, WebdriverIO, Appium — same signal set regardless of language).
 4. **No signal → unit.** Real, undoubled I/O in a test with no integration
    signal is itself the smell (mystery guest / over-mocking-inverted, J3/J6)
    — not a legitimate integration test that happens to lack a marker.
@@ -123,13 +152,15 @@ one.
 
 ## Step 2: apply the case catalog (see `reference.md`)
 
-`reference.md` in this skill's directory has the full catalog: every
-structural code (Family A–E, provable by a parser) and every semantic code
-(needs judgment). Walk it deliberately — do not rely on memory of "the
-famous ones" (assertion-free, tautology) and skip the rest. In particular,
-always screen for the semantic cases 10/11/12/15/18 and at least S11/S12/S16/S17
-— these are exactly what a static scanner (Step 0) cannot catch, and are the
-actual reason this skill exists on top of `falsegreen`.
+`reference.md` in this skill's directory has the full catalog, organized by
+language: Python (Family A–E structural codes), TypeScript/JavaScript (its
+own structural table), and one shared "Semantic patterns" section that
+applies to **every** language, including ones with no dedicated table — load
+the section matching what Step 0a detected. Walk it deliberately — do not
+rely on memory of "the famous ones" (assertion-free, tautology) and skip the
+rest. In particular, always screen for the semantic cases 10/11/12/15/18 and
+at least S11/S12/S16/S17 — these are exactly what a static scanner (Step 0b)
+cannot catch, and are the actual reason this skill exists on top of it.
 
 ## Step 3: apply the six judgments (J1–J6)
 
@@ -209,8 +240,9 @@ intentional there — don't repeat the note for every occurrence.
 
 ## Credits and references
 
-Full attribution, the complete catalog, and the academic sources this
-protocol traces to (Soares 2023's "rotten green test" thesis, Delplanque et
-al. ICSE 2019, PyNose/JetBrains Research ASE 2021, and the Open Catalog of
-Test Smells) are in `reference.md`, which this skill loads alongside itself
-— read it, do not skip straight to judgment from this file alone.
+Full attribution, the complete catalog (Python and TypeScript/JavaScript),
+and the academic sources this protocol traces to (Soares 2023's "rotten
+green test" thesis, Delplanque et al. ICSE 2019, PyNose/JetBrains Research
+ASE 2021, Jorge 2023's STEEL tool, and the Open Catalog of Test Smells) are
+in `reference.md`, which this skill loads alongside itself — read it, do not
+skip straight to judgment from this file alone.
