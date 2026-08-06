@@ -147,6 +147,9 @@ Productivity workflows:
 - `skills/productivity/journalist` — local daily session journals under `.journals/`.
 - `skills/productivity/handoff` — compact the current session into a temp-dir handoff for another agent.
 - `skills/productivity/ask-user` — route a situation to the smallest suitable installed workflow.
+- `skills/quality/test-smell-review` — review tests for false-green smells (pass without
+  protecting anything) using an in-context judgment protocol, adapted from
+  `falsegreen-skill` without its external LLM-CLI dependency.
 - `docs/engineering-standards.md` — **CES (Collective Engineering Standard)**: how house
   rules are coded, cited (`CES-<issue#>` + slug), and shipped. Single source of truth,
   referenced by `AGENTS.md`.
