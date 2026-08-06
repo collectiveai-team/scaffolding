@@ -11,89 +11,159 @@ edited, or explicitly reviewed: **a test is useful only if some incorrect
 implementation would make it fail.** If no such implementation exists, the
 test is structurally green regardless of whether the code is right.
 
-This skill exists because the obvious approach — installing `falsegreen-skill`
-(the upstream npm package this is adapted from) and shelling out to it — is a
-poor fit for an agentic coding session: it makes a second, separate LLM API
-call (its own API key, its own cost, non-deterministic on top of the
-in-context judgment the current agent can already make), and it installs as a
-Node CLI in a Python-only repo. This skill instead teaches the current agent
-session to apply the same judgment framework **directly, in-context, with no
-subprocess call** — zero extra cost, zero extra runtime, works identically
-across every agent host this repo already targets.
+## Why this is a native skill, not the upstream CLI
+
+The obvious approach — installing
+[`falsegreen-skill`](https://github.com/vinicq/falsegreen-skill) (the
+upstream npm package this is adapted from) and shelling out to it — is a poor
+fit for an agentic coding session:
+
+- It makes a **second, separate LLM API call** per file (its own
+  `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`/`GEMINI_API_KEY`, its own cost, and
+  non-deterministic output on top of the in-context judgment the current
+  agent session can already make for free).
+- Its install paths (Claude Code marketplace plugin, Antigravity/Gemini
+  extension manifests, a Cursor `.mdc` rule file, npm global/dev install)
+  don't map onto this repo's own `.agents/skills/<slug>/SKILL.md`
+  convention — the one `agent_config.py` already wires identically across
+  opencode/claude-code/codex.
+- It's a second runtime (Node 18+) in a Python-only tool.
+
+This skill extracts the **protocol** (the J1–J6 judgments and the case
+catalog) as native, in-context instructions instead — see `reference.md` for
+the full catalog, condensed and credited from the same source, and the
+"Credits and references" section there for the complete citation chain
+(academic sources included). No subprocess, no API key, no Node — the agent
+running this skill applies the judgment itself.
 
 ## Step 0: run the deterministic scanner first, if installed
 
-If `falsegreen` (`pip install falsegreen`) is available in the project, run it
-on the changed test files before applying any judgment below — it proves the
-purely structural cases (empty test, no assertion, tautological assert,
-swallowed exception, sleep-in-test, and 40+ more) deterministically, for free,
-with no LLM involved:
+If [`falsegreen`](https://github.com/vinicq/falsegreen) (`pip install
+falsegreen`) is available in the project, run it on the changed test files
+before applying any judgment below — it proves the purely structural cases
+(empty test, no assertion, tautological assert, swallowed exception,
+sleep-in-test, and more — the "structural" rows in `reference.md`)
+deterministically, for free, with no LLM involved:
 
 ```bash
 falsegreen tests/test_changed_file.py
 ```
 
 Everything it flags is already proven by a parser; do not re-derive those
-findings by hand. Apply the judgment protocol below only to what a parser
-cannot prove — that is what it is for.
+findings by hand, and do not contradict them. Apply the judgment protocol
+below to what a parser cannot prove — that is what the rest of this skill is
+for. (`falsegreen` itself is proposed as a house prek hook separately —
+[scaffolding#124](https://github.com/collectiveai-team/scaffolding/issues/124)
+— so it may not be installed yet; if it isn't, apply `reference.md`'s
+structural catalog by hand instead of skipping it.)
 
-## The six judgments (J1–J6)
+## Step 1: classify the test's intent
 
-For each test, ask these in order and stop at the first one that fails:
+Before judging the expected value, classify the test. Misclassifying here is
+the most common cause of a false alarm:
+
+| Class | Meaning | What counts as the oracle |
+|---|---|---|
+| spec / TDD | the test *is* the spec; code must match it | the test itself |
+| characterization | deliberately freezes today's behavior (e.g. during a refactor) | the current output, by design |
+| regression | records a specific known bug fix | the bug report |
+| behavior | verifies a production rule or contract | the spec, docstring, or types |
+
+A failing spec/TDD test is not a false positive. A labeled characterization
+snapshot is not a frozen bug — do not flag case 18 or C14 against one. Ask
+the user if the intent isn't stated in the test name, docstring, or a nearby
+comment and it materially changes the verdict.
+
+## Step 2: apply the case catalog (see `reference.md`)
+
+`reference.md` in this skill's directory has the full catalog: every
+structural code (Family A–E, provable by a parser) and every semantic code
+(needs judgment). Walk it deliberately — do not rely on memory of "the
+famous ones" (assertion-free, tautology) and skip the rest. In particular,
+always screen for the semantic cases 10/11/12/15/18 and at least S11/S12/S16/S17
+— these are exactly what a static scanner (Step 0) cannot catch, and are the
+actual reason this skill exists on top of `falsegreen`.
+
+## Step 3: apply the six judgments (J1–J6)
+
+For each test, ask these in order and stop at the first one that fails; every
+code in `reference.md` maps to one of these:
 
 | # | Question | Catches |
 |---|---|---|
 | J1 | Does the assertion actually run? | Dead code after `return`, a loop over an empty collection, an exception swallowed before the assert |
 | J2 | Is the expected value from an independent source, not the code's own output? | Asserting a mock's `return_value` back at itself (an echo), re-deriving the production formula as the "expected" value |
 | J3 | Is the real unit under test — not a mock standing in for it? | Patching the function being tested instead of one of its dependencies |
-| J4 | Does the assertion verify enough? | Truthiness-only checks, `len(x) > 0`, a `str()`/`repr()` comparison that checks formatting instead of the value |
+| J4 | Does the assertion verify enough, and the right thing? | Truthiness-only checks, `len(x) > 0`, a `str()`/`repr()` comparison that checks formatting instead of the value |
 | J5 | Is the test coupled to implementation internals rather than behavior? | Asserting on a mock's positional call args by a computed index, testing a private method directly |
 | J6 | Does the test pass in isolation, independent of run order? | Shared mutable module-level state, a test that only passes because an earlier test happened to run first |
 
 Flag **HIGH** only when the failed judgment has no plausible legitimate
-interpretation (a mock echoing itself is never a real check). Flag **LOW**
-when the smell is likely but a legitimate reading exists. Everything else is
-**PASS** — say nothing about it.
+interpretation. Flag **LOW** when the smell is likely but a legitimate
+reading exists. Everything else is **PASS** — say nothing about it.
+
+**Severity is a ceiling, not a floor.** The catalog's listed severity is the
+maximum for that code. Step 1's intent classification can only lower it (a
+HIGH code on a deliberate characterization/spec test drops to LOW or is
+withdrawn) — it never raises a code above its catalog severity.
+
+## Step 4: adversarial check for case 18 (and any other spec-contradiction finding)
+
+Case 18 — "the expected value contradicts the spec" — is the highest-stakes
+finding: it means a bug may be frozen as "correct". Before reporting it:
+
+1. Cite the independent oracle by name (docstring line, type annotation,
+   explicit spec section, domain rule). If you cannot cite one, do not
+   report it — that's a call for a human, not something to assert from
+   pattern-matching alone.
+2. Argue the opposite side: assume the expected value is correct, and try to
+   defend it. If a plausible defense holds, withdraw the finding or downgrade
+   to LOW.
+3. Report HIGH only when the cited oracle clearly contradicts the value and
+   the adversarial argument doesn't hold.
 
 ## Precision rules (do not over-flag)
 
-- Case 18 ("the expected value contradicts the spec") requires an actual cited
-  spec, docstring, or API contract. Without a citation, do not report it —
-  that is a judgment call for a human, not something to assert from thin air.
-- A characterization test — one deliberately freezing today's behavior during
-  a refactor — is not a false positive. Ask before flagging one if the intent
-  isn't stated in the test name/docstring.
 - Boolean predicates (`isinstance(...)`, `.exists()`, `.is_dir()`) are real
-  assertions, not weak truthiness checks.
+  assertions, not weak truthiness checks (not C6).
 - At the integration/API/E2E level, a truthiness check on a response or a
   rendered element often *is* the real check (the response existing is the
-  point) — do not apply unit-level strictness to a test that is deliberately
-  crossing an I/O boundary.
+  point) — do not apply unit-level strictness to a test deliberately crossing
+  an I/O boundary.
+- A mock replacing a genuine external edge (DB, network, clock) is never
+  case 10/S12; those apply only when the mock replaces the unit being tested.
+- `@given`/`@hypothesis`-decorated tests with no explicit `assert` are not
+  C2 — the framework generates and checks its own assertions.
+- **Tie-break:** when more than one code could fire on the same
+  `pytest.raises(...)` (e.g. C9 broad-type, C28 unread binding, S17
+  exception-path blindness), report only the most specific one — a broad
+  `pytest.raises(Exception)` followed by an assertion on the bound message
+  satisfies all three at once; don't stack findings for one root cause.
 
-## Reporting a finding
+## Step 5: report
 
-For each real finding, give: the file and line, which judgment failed (J1–J6),
-a one-line reason, and a concrete fix — an independent expected value or a
-narrower assertion, not just "add more asserts":
+For each real finding, give: the file and line, the code + judgment that
+failed, confidence, a one-line reason, and a concrete fix — an independent
+expected value or a narrower assertion, not just "add more asserts":
 
 ```
-tests/test_discount.py:14  [J2] HIGH
+tests/test_discount.py:14  [C11 / J2] HIGH
   Asserts mock_rate.return_value back at itself — passes for any return
   value, including a wrong one.
   Fix: assert the real computed result, e.g. `assert result == 90` (10% off
   100, from the spec), not `assert result == mock_rate.return_value`.
 ```
 
-## Credit
+Then a one-line summary: `Tests reviewed: N. Findings: M (H high, L low).`
 
-This skill's protocol is adapted from
-[`falsegreen-skill`](https://github.com/vinicq/falsegreen-skill)'s J1–J6
-framework and case catalog (itself building on Soares 2023's "rotten green
-test" thesis and Delplanque et al., ICSE 2019) — reimplemented here as
-native, in-context agent instructions instead of an external Node CLI that
-calls a second LLM. The companion deterministic scanner referenced in Step 0
-is [`falsegreen`](https://github.com/vinicq/falsegreen) (unrelated adaptation
-concern — it's a real static AST pass, not an LLM call, and is proposed as a
-house prek hook separately). Full case catalog, if a finding needs more
-detail than this condensed version covers:
-https://github.com/vinicq/falsegreen-skill/blob/master/reference.md.
+If 3 or more findings share the same code, add one closing line suggesting
+the user note it as a project convention if the pattern is actually
+intentional there — don't repeat the note for every occurrence.
+
+## Credits and references
+
+Full attribution, the complete catalog, and the academic sources this
+protocol traces to (Soares 2023's "rotten green test" thesis, Delplanque et
+al. ICSE 2019, PyNose/JetBrains Research ASE 2021, and the Open Catalog of
+Test Smells) are in `reference.md`, which this skill loads alongside itself
+— read it, do not skip straight to judgment from this file alone.
