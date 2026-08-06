@@ -21,14 +21,21 @@ make one HTTP call where the stdlib or an existing transitive dep would do.
 ## Enforcement posture
 
 Ships **summary-only**: `comment-summary-in-pr: always`, no `fail-on-severity` or
-`deny-licenses`. It cannot block a merge in this configuration — promote to a hard gate only after
-a burn-in period, as a separate, explicit decision.
+`deny-licenses`, **plus `continue-on-error: true`**. It cannot block a merge in this
+configuration — promote to a hard gate only after a burn-in period, as a separate, explicit
+decision.
 
 ## Requirements
 
-GitHub-hosted repos only. Private repos need "Dependency graph" enabled in repo settings (free
-tier, not a paid Advanced Security feature) — without it, the action silently has nothing to
-report.
+GitHub-hosted repos only, and the repo (or org) needs "Dependency graph" enabled (Settings >
+Security > Dependency graph — free tier, not a paid Advanced Security feature; some orgs disable
+it at the org level regardless of repo visibility). Unlike most GitHub security features, this
+action does **not** no-op quietly when Dependency graph is unavailable — it hard-fails the step
+with "Dependency review is not supported on this repository." That is exactly why
+`continue-on-error: true` is part of the shipped default, not optional polish: without it, an
+infra gap (not a real dependency finding) would silently violate this standard's own
+"can't block merges" promise. Verified directly against a real repo where the org has the feature
+disabled.
 
 ## Suppression
 

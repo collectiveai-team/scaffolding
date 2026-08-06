@@ -415,6 +415,9 @@ def test_dependency_review_and_osv_scanner_are_ces_coded():
     wf = template_text("github/workflows/dependency-review.yml")
     assert "CES-113 (dependency-review-action)" in wf
     assert "comment-summary-in-pr: always" in wf
+    # the action hard-fails (not a quiet no-op) when Dependency graph isn't enabled — this must
+    # never block a merge, since the whole point of the check is "summary-only".
+    assert "continue-on-error: true" in wf
     wf2 = template_text("github/workflows/osv-scanner.yml")
     assert "CES-119 (osv-scanner-replace-pip-audit)" in wf2
     assert "--lockfile=uv.lock" in wf2
