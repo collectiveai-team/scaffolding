@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,10 @@ from scaffolding.settings import Settings
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_ROOT = REPO_ROOT / "skills"
+
+# `tessl skill lint` enforces this, but it needs an authenticated CLI. The pattern is
+# cheap to check here so a malformed skill fails in CI rather than at publish time.
+SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,22 @@ def test_skill_names_are_globally_unique():
 def test_every_shipped_skill_is_registered():
     """A skill in the tree that no command installs is dead weight."""
     assert {s.name for s in _shipped_skills()} == {*LOCAL_SKILLS, *DATASCIENCE_SKILLS}
+
+
+# --- frontmatter is well-formed ----------------------------------------------
+def test_skill_name_is_lowercase_kebab_case():
+    """Skill registries reject anything else, and the name is the install key."""
+    for skill in _shipped_skills():
+        assert SKILL_NAME_RE.match(skill.name), f"{skill.path}: bad name {skill.name!r}"
+
+
+def test_skill_declares_a_description():
+    """The description is the only thing an agent sees when deciding to load a skill."""
+    for skill in _shipped_skills():
+        body = skill.path.read_text(encoding="utf-8")
+        assert body.startswith("---\n"), f"{skill.path}: missing frontmatter"
+        frontmatter = body.split("---\n", 2)[1]
+        assert "description:" in frontmatter, f"{skill.path}: no description"
 
 
 # --- the datascience family is opt-in ----------------------------------------
