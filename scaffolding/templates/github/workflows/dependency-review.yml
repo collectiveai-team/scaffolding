@@ -1,0 +1,26 @@
+name: dependency-review
+
+# CES-113 (dependency-review-action): diff the dependency graph between a PR's base and head ref
+# and surface newly-introduced dependencies, licenses, and vulnerability severity directly on the
+# PR — closes the "dependency creep" blind spot pip-audit/osv-scanner don't cover (they scan the
+# final resolved set, never what changed in *this* PR). Summary-only (no fail-on-severity /
+# deny-licenses) so it can't block merges during burn-in; promote to a hard gate later as a
+# separate decision. Requires the repo's "Dependency graph" enabled (free tier, private repos too).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v5.0.0
+        with:
+          comment-summary-in-pr: always

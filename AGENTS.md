@@ -114,6 +114,23 @@ judgment; `[snippet]` ships canonical code under `.agents/snippets/` (in target 
   (the `plan()`/`build_plan()` API), not internals. → `@.agents/rules/test-through-interface.md`
 - **CES-66 · coverage gaps are a signal** `[judgment]` — an untested branch is a missing test or
   dead code, not a number to game. → `@.agents/rules/test-coverage-gap.md`
+- **CES-91 · no AI co-authorship in commits** `[prek]` `[ci]` — no `Co-authored-by:`/`Generated
+  with`/etc AI-attribution trailers; commit-msg hook + `commit-policy.yml` CI. →
+  `@.agents/rules/no-ai-coauthorship.md`
+- **CES-109 · dependency hygiene** `[prek]` — declared deps must match the import graph
+  (`deptry`); `review`/`scaffolding/templates`/`skills` excluded (separate distribution / bundled
+  payload). → `@.agents/rules/dep-hygiene-deptry.md`
+- **CES-110 · cognitive complexity** `[prek]` — cognitive-complexity ceiling of 15 per function
+  (`complexipy`), distinct from ruff's cyclomatic `C90`. →
+  `@.agents/rules/cognitive-complexity-complexipy.md`
+- **CES-111 · randomize test order** `[dependency]` — `pytest-randomly` runs every suite in a
+  random, reproducibly-seeded order. → `@.agents/rules/test-order-randomization-pytest-randomly.md`
+- **CES-113 · dependency review on PRs** `[ci]` — `dependency-review-action`, summary-only, not a
+  merge gate. → `@.agents/rules/dependency-review-action.md`
+- **CES-118 · no copy-paste duplication** `[prek]` — `jscpd`; `guide.md` exempted (deliberately
+  mirrors `README.md`). → `@.agents/rules/code-duplication-jscpd.md`
+- **CES-119 · dependency vulnerability scanning** `[ci]` — `osv-scanner` on `uv.lock`; replaces
+  the old `pip-audit.yml`. → `@.agents/rules/osv-scanner-replace-pip-audit.md`
 
 ### Excluded here (don't apply to a pure-Python CLI)
 
@@ -121,6 +138,8 @@ judgment; `[snippet]` ships canonical code under `.agents/snippets/` (in target 
 - **CES-18 · arch-database-package** — no relational persistence layer.
 - **CES-76 · settings-module** — no `BaseSettings` config surface (CLI reads flags via Cyclopts).
 - **CES-17 · api-boundary-layout** — no inbound HTTP/`api` package.
+- **CES-114 · hadolint-dockerfile-lint** — no root `Dockerfile` / `docker` CI component in this
+  repo.
 
 ## Domain docs
 
