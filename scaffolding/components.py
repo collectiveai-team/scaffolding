@@ -99,7 +99,7 @@ MATTPOCOCK_SKILLS = [
     "writing-great-skills",
     "grilling",
 ]
-LOCAL_SKILLS = ["ask-user", "journalist", "handoff"]
+LOCAL_SKILLS = ["ask-user", "journalist", "handoff", "test-smell-review"]
 DEFAULT_CI_PARTS = ["tests", "security", "docker"]
 # "opencode" is opt-in only (off by default): it needs repo secrets and the
 # OpenCode GitHub App installed, so it is never added unless explicitly chosen.
