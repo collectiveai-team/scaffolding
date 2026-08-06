@@ -100,6 +100,24 @@ MATTPOCOCK_SKILLS = [
     "grilling",
 ]
 LOCAL_SKILLS = ["ask-user", "journalist", "handoff"]
+# Opt-in family (WITH_DATASCIENCE_SKILLS / --datascience-skills). Not installed by
+# default: it is only useful in time-series forecasting repos, and installing it
+# everywhere would bury the always-on skills.
+DATASCIENCE_SKILLS = [
+    "forecast-workflow",
+    "data-profiling",
+    "datascience-ts-eda",
+    "datascience-preprocessing",
+    "datascience-dataset-validator",
+    "datascience-feature-engineering",
+    "datascience-dataset-inspector",
+    "datascience-model-architect",
+    "datascience-model-training",
+    "datascience-training-scheduler",
+    "datascience-training-monitor",
+    "datascience-prediction-analysis",
+    "datascience-research-journal",
+]
 DEFAULT_CI_PARTS = ["tests", "security", "docker"]
 # "opencode" is opt-in only (off by default): it needs repo secrets and the
 # OpenCode GitHub App installed, so it is never added unless explicitly chosen.
@@ -504,39 +522,29 @@ def plan_skills(ctx: Context) -> list[Op]:
     # Claude reaches the same skills via the .claude/skills -> .agents/skills symlink that
     # the agent-config component creates when claude-code is selected.
     install_agent = Agent.OPENCODE.value
-    cmds = [
-        [
-            "npx",
-            "skills",
-            "add",
-            "mattpocock/skills",
-            "--agent",
-            install_agent,
-            "--yes",
-            "--skill",
-            *MATTPOCOCK_SKILLS,
-        ],
-        [
-            "npx",
-            "skills",
-            "add",
-            "collectiveai-team/scaffolding",
-            "--agent",
-            install_agent,
-            "--yes",
-            "--skill",
-            *LOCAL_SKILLS,
-        ],
-        ["npx", "skills", "add", "dmno-dev/varlock", "--agent", install_agent, "--yes"],
+
+    def add(source: str, skills: list[str]) -> list[str]:
+        cmd = ["npx", "skills", "add", source, "--agent", install_agent, "--yes"]
+        return [*cmd, "--skill", *skills] if skills else cmd
+
+    steps: list[tuple[str, list[str]]] = [
+        (f"matt pocock skills ({AGENTS_SKILLS_DIR})", add("mattpocock/skills", MATTPOCOCK_SKILLS)),
+        (
+            f"local skills: {' '.join(LOCAL_SKILLS)} ({AGENTS_SKILLS_DIR})",
+            add("collectiveai-team/scaffolding", LOCAL_SKILLS),
+        ),
+        (f"dmno-dev/varlock skill ({AGENTS_SKILLS_DIR})", add("dmno-dev/varlock", [])),
     ]
-    labels = [
-        f"matt pocock skills ({AGENTS_SKILLS_DIR})",
-        f"local skills: {' '.join(LOCAL_SKILLS)} ({AGENTS_SKILLS_DIR})",
-        f"dmno-dev/varlock skill ({AGENTS_SKILLS_DIR})",
-    ]
+    if ctx.settings.with_datascience_skills:
+        steps.append(
+            (
+                f"datascience skills: {len(DATASCIENCE_SKILLS)} forecasting workflow skills "
+                f"({AGENTS_SKILLS_DIR})",
+                add("collectiveai-team/scaffolding", DATASCIENCE_SKILLS),
+            )
+        )
     return [
-        Op("skills", "run", labels[i], Disposition.RUN, cmd=cmds[i], optional=True)
-        for i in range(len(cmds))
+        Op("skills", "run", label, Disposition.RUN, cmd=cmd, optional=True) for label, cmd in steps
     ]
 
 

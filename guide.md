@@ -231,6 +231,15 @@ npx skills add dmno-dev/varlock --agent opencode --yes
 From a local checkout, install local skills with
 `npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth`.
 
+**Data science skills are opt-in.** The `skills/datascience/` family (13
+time-series forecasting skills) is off by default. Install it only when the repo
+actually does forecasting work — ask first if unsure. Pass
+`--datascience-skills` to `scaffolding install`, or add it later with:
+
+```bash
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill forecast-workflow data-profiling datascience-ts-eda datascience-preprocessing datascience-dataset-validator datascience-feature-engineering datascience-dataset-inspector datascience-model-architect datascience-model-training datascience-training-scheduler datascience-training-monitor datascience-prediction-analysis datascience-research-journal
+```
+
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering
 skills assume. The upstream skill defaults the issue tracker to GitHub; for this

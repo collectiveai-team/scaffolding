@@ -1,0 +1,108 @@
+"""Skill registry tests: the shipped `skills/` tree must match what the CLI installs."""
+
+from __future__ import annotations
+
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+
+import pytest
+
+from scaffolding.components import DATASCIENCE_SKILLS, LOCAL_SKILLS
+from scaffolding.engine import build_plan
+from scaffolding.facts import detect
+from scaffolding.plan import Disposition
+from scaffolding.settings import Settings
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SKILLS_ROOT = REPO_ROOT / "skills"
+
+
+@dataclass(frozen=True)
+class ShippedSkill:
+    """A SKILL.md in the tree, with the ``name:`` npx resolves it by."""
+
+    name: str
+    path: Path
+
+    @property
+    def directory(self) -> str:
+        return self.path.parent.name
+
+
+def _declared_name(skill_md: Path) -> str:
+    for line in skill_md.read_text(encoding="utf-8").splitlines():
+        if line.startswith("name:"):
+            return line.removeprefix("name:").strip()
+    raise AssertionError(f"{skill_md} has no frontmatter `name:`")
+
+
+def _shipped_skills() -> list[ShippedSkill]:
+    """Every SKILL.md under `skills/<category>/<skill>/`, in stable order."""
+    paths = sorted(SKILLS_ROOT.glob("*/*/SKILL.md"))
+    return [ShippedSkill(name=_declared_name(p), path=p) for p in paths]
+
+
+def _skill_ops(settings: Settings, repo: Path):
+    plan = build_plan(repo, detect(repo, probe_visibility=False), settings, requested=["skills"])
+    return [op for op in plan.by(Disposition.RUN) if op.component == "skills"]
+
+
+# The skills component no-ops without npx, so the behavioural tests below need it.
+needs_npx = pytest.mark.skipif(
+    shutil.which("npx") is None, reason="skills component is a no-op without npx"
+)
+
+
+@pytest.fixture
+def repo(tmp_path: Path) -> Path:
+    import subprocess
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    return tmp_path
+
+
+# --- the tree and the registry agree -----------------------------------------
+@pytest.mark.parametrize("skill", [*LOCAL_SKILLS, *DATASCIENCE_SKILLS])
+def test_registered_skill_is_shipped(skill: str):
+    """Every name the CLI passes to `npx skills --skill` must exist in `skills/`."""
+    names = {s.name for s in _shipped_skills()}
+    assert skill in names, f"{skill} is registered but has no skills/*/{skill}/SKILL.md"
+
+
+def test_shipped_skill_directory_matches_frontmatter_name():
+    """`npx skills` resolves by name; a mismatched directory makes the skill unreachable."""
+    for skill in _shipped_skills():
+        assert skill.directory == skill.name
+
+
+def test_skill_names_are_globally_unique():
+    """`.agents/skills` is flat, so a name collision across categories silently clobbers."""
+    names = [s.name for s in _shipped_skills()]
+    assert len(names) == len(set(names))
+
+
+def test_every_shipped_skill_is_registered():
+    """A skill in the tree that no command installs is dead weight."""
+    assert {s.name for s in _shipped_skills()} == {*LOCAL_SKILLS, *DATASCIENCE_SKILLS}
+
+
+# --- the datascience family is opt-in ----------------------------------------
+@needs_npx
+def test_datascience_skills_absent_by_default(repo: Path):
+    ops = _skill_ops(Settings(), repo)
+    assert ops, "expected the default skills ops"
+    assert "datascience" not in " ".join(op.target for op in ops)
+
+
+@needs_npx
+def test_datascience_skills_added_when_opted_in(repo: Path):
+    ops = _skill_ops(Settings(with_datascience_skills=True), repo)
+    requested = [arg for op in ops for arg in (op.cmd or [])]
+    for skill in DATASCIENCE_SKILLS:
+        assert skill in requested
+
+
+def test_skip_skills_wins_over_datascience_optin(repo: Path):
+    settings = Settings(skip_skills=True, with_datascience_skills=True)
+    assert _skill_ops(settings, repo) == []

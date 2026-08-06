@@ -29,8 +29,9 @@ This repo does two things:
    small Python CLI. This is a one-time-per-repo operation, run as an *agentic
    install* or directly — not an installed skill. Target one or more agents with
    `--agent` (repeatable / comma-separated; default `opencode`).
-2. **Ship a couple of recurring skills** (`journalist`, `handoff`) that you
-   install once and use repeatedly.
+2. **Ship recurring skills** you install once and use repeatedly: the always-on
+   productivity set (`ask-user`, `journalist`, `handoff`), plus an opt-in
+   time-series forecasting family under `skills/datascience/`.
 
 Most engineering workflow skills I use come from Matt Pocock's
 [`skills`](https://github.com/mattpocock/skills). This repo intentionally does
@@ -119,6 +120,39 @@ Skills install once into `.agents/skills`; claude-code reaches them via the
 `.claude/skills` symlink created by the bootstrap, so there is no need to re-run
 the installer with `--agent claude-code` / `--agent codex`.
 
+## Data science skills (opt-in)
+
+A 13-skill time-series forecasting family, off by default because it is only
+useful in forecasting repos. Opt in during bootstrap:
+
+```bash
+uvx --from git+https://github.com/collectiveai-team/scaffolding scaffolding install --datascience-skills
+```
+
+(or set `WITH_DATASCIENCE_SKILLS=1`). To add them to an already-bootstrapped
+repo:
+
+```bash
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill forecast-workflow data-profiling datascience-ts-eda datascience-preprocessing datascience-dataset-validator datascience-feature-engineering datascience-dataset-inspector datascience-model-architect datascience-model-training datascience-training-scheduler datascience-training-monitor datascience-prediction-analysis datascience-research-journal
+```
+
+Start at `forecast-workflow` — it is the index, and it defines the phase order
+and the artifact contract the others read.
+
+| Phase | Skill |
+|---|---|
+| — | `forecast-workflow` — workflow map, phase ownership, artifact contract |
+| 2 | `datascience-ts-eda`, `data-profiling` — EDA and profiling technique reference |
+| 3 | `datascience-preprocessing`, `datascience-dataset-validator` |
+| 4 | `datascience-feature-engineering`, `datascience-dataset-inspector` |
+| 5 | `datascience-model-architect` |
+| 6 | `datascience-training-scheduler`, `datascience-training-monitor`, `datascience-model-training` |
+| 7 | `datascience-prediction-analysis` |
+| 8 | `datascience-research-journal` |
+
+They are library-agnostic: each names the statistical technique and the artifact
+contract, and defers to the project's own toolkit when one exists.
+
 ## Upstream skills from Matt Pocock
 
 User-invoked engineering workflows:
@@ -147,6 +181,8 @@ Productivity workflows:
 - `skills/productivity/journalist` — local daily session journals under `.journals/`.
 - `skills/productivity/handoff` — compact the current session into a temp-dir handoff for another agent.
 - `skills/productivity/ask-user` — route a situation to the smallest suitable installed workflow.
+- `skills/datascience/` — opt-in time-series forecasting family (13 skills); see
+  the section above.
 - `docs/engineering-standards.md` — **CES (Collective Engineering Standard)**: how house
   rules are coded, cited (`CES-<issue#>` + slug), and shipped. Single source of truth,
   referenced by `AGENTS.md`.
