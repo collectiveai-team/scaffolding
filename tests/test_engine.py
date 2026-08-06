@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -399,6 +400,21 @@ def test_ci_plan_ships_security_workflows_for_python(repo: Path):
     # CES-119: osv-scanner replaces pip-audit — no pip-audit.yml target exists anymore.
     assert ".github/workflows/osv-scanner.yml" in adds
     assert ".github/workflows/pip-audit.yml" not in adds
+
+
+def test_ci_plan_skips_dependency_review_on_private_repos(repo: Path):
+    # CES-113: tier-agnostic — dependency-review-action needs a paid GitHub Advanced
+    # Security/Code Security tier on private/internal repos, so it's skipped there (same
+    # posture as docker.yml's GHCR-billing skip), not silently shipped broken.
+    decisions = Decisions(ci_parts=["security"])
+    facts = dataclasses.replace(_facts(repo), visibility="private")
+    plan = build_plan(repo, facts, Settings(), requested=["ci"], decisions=decisions)
+    adds = {op.target for op in plan.by(Disposition.ADD) if op.component == "ci"}
+    skips = {op.target for op in plan.by(Disposition.SKIP) if op.component == "ci"}
+    assert ".github/workflows/dependency-review.yml" not in adds
+    assert ".github/workflows/dependency-review.yml" in skips
+    # zizmor (no tier requirement) still ships.
+    assert ".github/workflows/zizmor.yml" in adds
 
 
 def test_ci_plan_skips_osv_scanner_for_nonpython_security(repo: Path):

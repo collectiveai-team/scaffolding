@@ -316,11 +316,32 @@ def _ci_always_on_ops(ctx: Context) -> list[Op]:
     ]
 
 
+def _ci_dependency_review_ops(ctx: Context) -> list[Op]:
+    # CES-113: free for public repos (just needs "Dependency graph" enabled — a web-UI-only
+    # toggle, no API), but on PRIVATE/internal repos the action requires GitHub Advanced
+    # Security / Code Security, a paid tier. This tool is tier-agnostic (works on free public
+    # AND free private repos without assuming a paid upgrade — see docker.yml's identical GHCR
+    # billing skip below), so only ship it where it's actually free.
+    if ctx.facts.visibility in ("private", "internal"):
+        return [
+            Op(
+                "ci",
+                "noop",
+                ".github/workflows/dependency-review.yml",
+                Disposition.SKIP,
+                detail="repo non-public — dependency-review-action requires GitHub Advanced "
+                "Security/Code Security (paid) on private repos. Skipped; add manually if your "
+                "plan includes it.",
+            )
+        ]
+    return [_ci_workflow_op(ctx, "workflows/dependency-review.yml")]
+
+
 def _ci_security_ops(ctx: Context) -> list[Op]:
     ops = [
         _ci_workflow_op(ctx, "workflows/zizmor.yml"),
         _ci_workflow_op(ctx, "zizmor.yml"),
-        _ci_workflow_op(ctx, "workflows/dependency-review.yml"),
+        *_ci_dependency_review_ops(ctx),
     ]
     # CES-119: osv-scanner reads uv.lock; gated on Python until a non-Python lockfile template
     # exists (see the CES-119 detail file).
