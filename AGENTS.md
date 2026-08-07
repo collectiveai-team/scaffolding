@@ -13,7 +13,14 @@
   `collectiveai-team/scaffolding` on `main`.
 - `guide.md` — the agentic-install guide (judgment layer that drives the CLI and
   handles merges). Keep template raw URLs pointing at `collectiveai-team/scaffolding`.
-- `skills/` — actual installed skills (`ask-user`, `journalist`, `handoff`).
+- `skills/` — actual installed skills, grouped by category directory.
+  `skills/productivity/` is always installed (`ask-user`, `journalist`,
+  `handoff`); `skills/datascience/` is the opt-in time-series forecasting family
+  (13 skills, gated behind `--datascience-skills` / `WITH_DATASCIENCE_SKILLS`).
+  Category directories are a filesystem convention only — `npx skills` resolves
+  by the frontmatter `name:`, so names must be globally unique. The registry
+  lists live in `scaffolding/components.py` (`LOCAL_SKILLS`,
+  `DATASCIENCE_SKILLS`) and `tests/test_skills.py` asserts they match the tree.
 
 Agent targets are multi-valued (`--agent`, repeatable: `opencode`/`claude-code`/
 `codex`). The `agent-config` component writes per-agent config — `opencode.jsonc`

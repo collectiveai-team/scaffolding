@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     skip_ci: bool = False
     skip_skills: bool = False
     skip_varlock: bool = False
+    # Opt-in: the time-series forecasting skill family. Off by default because it is
+    # irrelevant to most repos and would add 13 skills to .agents/skills.
+    with_datascience_skills: bool = False
     no_deps: bool = False
     raw_base: str = DEFAULT_RAW_BASE
 

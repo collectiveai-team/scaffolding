@@ -25,7 +25,13 @@ app = App(
 
 
 # --- shared helpers ----------------------------------------------------------
-def _settings(yes: bool, agent: list[Agent] | None, ci: bool | None, no_deps: bool) -> Settings:
+def _settings(
+    yes: bool,
+    agent: list[Agent] | None,
+    ci: bool | None,
+    no_deps: bool,
+    datascience_skills: bool = False,
+) -> Settings:
     s = Settings()
     if yes:
         s.assume_yes = True
@@ -37,6 +43,8 @@ def _settings(yes: bool, agent: list[Agent] | None, ci: bool | None, no_deps: bo
         s.skip_ci = True
     if no_deps:
         s.no_deps = True
+    if datascience_skills:
+        s.with_datascience_skills = True
     return s
 
 
@@ -106,10 +114,11 @@ def install(
     description: str | None = None,
     varlock: bool | None = None,
     no_deps: bool = False,
+    datascience_skills: bool = False,
 ):
     """Apply clean-adds for the selected components (or all default-on)."""
     root = Path.cwd()
-    settings = _settings(yes, agent, ci, no_deps)
+    settings = _settings(yes, agent, ci, no_deps, datascience_skills)
     facts = detect(root)
 
     if not facts.is_git_repo and not dry_run:
@@ -184,10 +193,11 @@ def plan_cmd(
     name: str | None = None,
     description: str | None = None,
     varlock: bool | None = None,
+    datascience_skills: bool = False,
 ):
     """Build the plan and print it (machine-readable with --json). Writes nothing."""
     root = Path.cwd()
-    settings = _settings(False, agent, ci, no_deps)
+    settings = _settings(False, agent, ci, no_deps, datascience_skills)
     facts = detect(root)
     decisions = _seed_decisions(agent, name, description, varlock, ci_parts)
     try:
