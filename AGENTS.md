@@ -13,7 +13,13 @@
   `collectiveai-team/scaffolding` on `main`.
 - `guide.md` — the agentic-install guide (judgment layer that drives the CLI and
   handles merges). Keep template raw URLs pointing at `collectiveai-team/scaffolding`.
-- `skills/` — actual installed skills (`ask-user`, `journalist`, `handoff`).
+- `skills/` — actual installed skills (`ask-user`, `journalist`, `handoff`). Each
+  carries Claude-style `SKILL.md` frontmatter **and** an `agents/openai.yaml`;
+  Codex reads only the latter, so `disable-model-invocation: true` must be paired
+  with `policy.allow_implicit_invocation: false` (and omitted for model-invoked
+  skills, which Codex otherwise filters out entirely).
+- `scripts/` — maintainer-only checks, not shipped. `check_skill_drift.py` guards
+  the curated upstream catalog; the `skills-drift` workflow runs it.
 
 Agent targets are multi-valued (`--agent`, repeatable: `opencode`/`claude-code`/
 `codex`). The `agent-config` component writes per-agent config — `opencode.jsonc`
@@ -30,11 +36,17 @@ After creating or editing any skill under `skills/`, validate its `SKILL.md`
 before committing:
 
 ```bash
-tessl skill review <SKILL.md>
+tessl review run <SKILL.md>
 ```
 
-Run it against each changed skill (e.g. `tessl skill review skills/productivity/journalist/SKILL.md`)
-and resolve the reported issues before publishing.
+Run it against each changed skill (e.g. `tessl review run skills/productivity/journalist/SKILL.md`)
+and resolve the reported issues before publishing. It needs `tessl login`.
+
+The upstream skill catalog (`MATTPOCOCK_SKILLS` in `scaffolding/components.py`) is
+the single source of truth — `README.md` and `guide.md` only copy it, and
+`tests/test_skill_catalog.py` fails when a copy drifts. Bump `MATTPOCOCK_REF`
+there to take a new upstream release; never edit the install command in the docs
+by hand.
 
 
 ## Engineering Standards coding (CES)

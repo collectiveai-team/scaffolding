@@ -117,6 +117,8 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "INP001"]
+# Maintainer scripts run as files, not as an importable package.
+"scripts/**" = ["INP001"]
 
 [tool.pyrefly]
 project-excludes = [
