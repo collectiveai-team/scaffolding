@@ -22,7 +22,9 @@ dependencies = [
 scaffolding = "scaffolding.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.16.0"]
+# pyyaml is test-only: skill frontmatter must be verified by a real YAML parser, since
+# an unquoted scalar containing ": " parses as a mapping and silently breaks the skill.
+dev = ["pytest>=8.0", "ruff>=0.16.0", "pyyaml>=6.0"]
 
 # Version derived from git tags (vX.Y.Z) by hatch-vcs.
 [tool.hatch.version]

@@ -1,6 +1,6 @@
 ---
 name: datascience-prediction-analysis
-description: Evaluate forecast predictions — compute metrics against a baseline, analyze residuals, check prediction interval calibration, visualize backtests, decompose error by condition, and judge acceptance criteria — then recommend one highest-impact iteration. Use as phase 7 of the forecasting workflow.
+description: Evaluates forecast predictions — metrics against a baseline, residual analysis, interval calibration, error decomposition, and an acceptance verdict — then recommends one highest-impact iteration. Use when a model has finished training, or when deciding whether results are good enough to ship.
 ---
 
 # Prediction Analysis

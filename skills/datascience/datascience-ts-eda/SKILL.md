@@ -1,6 +1,6 @@
 ---
 name: datascience-ts-eda
-description: Run exploratory data analysis on a time-series dataset — statistical profiling, missingness and outlier analysis, seasonality and stationarity, correlation, segment discovery, and a standard plot suite — and report findings plus preprocessing recommendations. Use as phase 2 of the forecasting workflow, before any preprocessing or modeling decision.
+description: Runs exploratory data analysis on a time-series dataset — profiling, missingness, seasonality, stationarity, correlation, segment discovery, and a standard plot suite. Use when first exploring a forecasting dataset, or before making any preprocessing or modeling decision.
 ---
 
 # Time-Series EDA

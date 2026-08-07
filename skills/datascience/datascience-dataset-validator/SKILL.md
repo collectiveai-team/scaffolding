@@ -1,6 +1,6 @@
 ---
 name: datascience-dataset-validator
-description: Judge whether train/validation/test splits preserve the statistical properties, event coverage, and temporal structure that make training and evaluation meaningful, and return a VALID / VALID_WITH_RISKS / INVALID verdict. Use as the gate between preprocessing and feature engineering, or whenever a split strategy changes.
+description: Validates that train/validation/test splits preserve the statistical properties, event coverage, and temporal structure needed for meaningful training, returning a VALID / VALID_WITH_RISKS / INVALID verdict. Use when splits have just been created, a split strategy changes, or evaluation results look unstable or too good.
 ---
 
 # Dataset Split Validator

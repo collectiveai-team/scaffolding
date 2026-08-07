@@ -1,6 +1,6 @@
 ---
 name: datascience-feature-engineering
-description: Generate time-series features — lags, rolling statistics, calendar terms, Fourier harmonics, interactions — with segment-aware windowing and past/future/static covariate classification, then rank them and extend the pipeline spec. Use as phase 4 of the forecasting workflow, after preprocessing and split validation.
+description: Generates time-series features — lags, rolling statistics, calendar terms, Fourier harmonics — with segment-aware windowing and past/future/static covariate classification. Use when building features for a forecasting model, or when windowed features may be crossing data discontinuities.
 ---
 
 # Time-Series Feature Engineering

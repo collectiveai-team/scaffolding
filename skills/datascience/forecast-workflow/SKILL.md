@@ -1,6 +1,6 @@
 ---
 name: forecast-workflow
-description: Map of the standard end-to-end time-series forecasting workflow — EDA through prediction analysis — naming each phase, its owning skill, its artifact contract, and its checkpoint. Use when orienting to the workflow, deciding which phase skill to invoke next, debugging a phase transition, or writing orchestration code.
+description: Maps the end-to-end time-series forecasting workflow, naming each phase, its owning skill, its artifact contract, and its checkpoint. Use when orienting to a forecasting project, deciding which phase skill to invoke next, debugging a handoff between phases, or writing orchestration code.
 ---
 
 # Forecast Workflow — Standard End-to-End

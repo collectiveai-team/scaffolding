@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+import yaml
 
 from scaffolding.components import DATASCIENCE_SKILLS, LOCAL_SKILLS
 from scaffolding.engine import build_plan
@@ -35,11 +36,25 @@ class ShippedSkill:
         return self.path.parent.name
 
 
+def _frontmatter(skill_md: Path) -> dict[str, object]:  # ast-grep-ignore: no-dict-return-annotation
+    """Parse the YAML frontmatter block.
+
+    Deliberately a real YAML parse, not a line scan: an unquoted scalar containing
+    ``": "`` parses as a nested mapping and makes the whole skill unloadable, which a
+    ``startswith("name:")`` check happily walks straight past.
+    """
+    body = skill_md.read_text(encoding="utf-8")
+    assert body.startswith("---\n"), f"{skill_md}: missing frontmatter block"
+    _, raw, _ = body.split("---\n", 2)
+    loaded = yaml.safe_load(raw)
+    assert isinstance(loaded, dict), f"{skill_md}: frontmatter is not a mapping"
+    return loaded
+
+
 def _declared_name(skill_md: Path) -> str:
-    for line in skill_md.read_text(encoding="utf-8").splitlines():
-        if line.startswith("name:"):
-            return line.removeprefix("name:").strip()
-    raise AssertionError(f"{skill_md} has no frontmatter `name:`")
+    name = _frontmatter(skill_md).get("name")
+    assert isinstance(name, str), f"{skill_md}: frontmatter `name:` missing or not a string"
+    return name
 
 
 def _shipped_skills() -> list[ShippedSkill]:
@@ -99,13 +114,16 @@ def test_skill_name_is_lowercase_kebab_case():
         assert SKILL_NAME_RE.match(skill.name), f"{skill.path}: bad name {skill.name!r}"
 
 
-def test_skill_declares_a_description():
-    """The description is the only thing an agent sees when deciding to load a skill."""
+def test_skill_frontmatter_is_valid_yaml_with_a_description():
+    """The description is the only thing an agent sees when deciding to load a skill.
+
+    Regression guard: three skills once shipped a description containing an unquoted
+    ``": "``, which YAML reads as a nested mapping. The skill silently fails to load.
+    """
     for skill in _shipped_skills():
-        body = skill.path.read_text(encoding="utf-8")
-        assert body.startswith("---\n"), f"{skill.path}: missing frontmatter"
-        frontmatter = body.split("---\n", 2)[1]
-        assert "description:" in frontmatter, f"{skill.path}: no description"
+        description = _frontmatter(skill.path).get("description")
+        assert isinstance(description, str), f"{skill.path}: description missing or not a string"
+        assert description.strip(), f"{skill.path}: empty description"
 
 
 # --- the datascience family is opt-in ----------------------------------------

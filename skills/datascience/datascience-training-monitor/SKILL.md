@@ -1,6 +1,6 @@
 ---
 name: datascience-training-monitor
-description: Poll a running forecasting training batch — read the status file, query the experiment tracker and compute backend, detect stuck or failed runs, and report progress or completion. Use as the polling half of phase 6 of the forecasting workflow, invoked periodically after jobs are submitted.
+description: Polls a running forecasting training batch, querying the experiment tracker and compute backend to detect stuck or failed runs and report progress or completion. Use when training jobs are in flight, a batch seems stalled, or a periodic status check is due.
 ---
 
 # Training Monitor

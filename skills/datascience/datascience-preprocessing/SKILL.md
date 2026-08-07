@@ -1,6 +1,6 @@
 ---
 name: datascience-preprocessing
-description: Clean and transform raw time-series data for forecasting — missing values, outliers, type casting, resampling, discontinuity segmentation, and temporal train/validation/test splitting — and emit a replayable pipeline spec plus a segment manifest. Use as phase 3 of the forecasting workflow, after EDA and before feature engineering.
+description: Cleans and transforms raw time-series data — missing values, outliers, resampling, discontinuity segmentation, and temporal splitting — emitting a replayable pipeline spec and segment manifest. Use when preparing data for forecasting, or when a series has gaps or regime breaks that need segmenting.
 ---
 
 # Time-Series Preprocessing

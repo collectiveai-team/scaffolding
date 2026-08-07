@@ -1,6 +1,6 @@
 ---
 name: datascience-training-scheduler
-description: Submit forecasting training jobs to a compute backend and return immediately — read the job specs, resolve the pipeline spec, map resource requirements, dispatch, and write the status file. Use as the submission half of phase 6 of the forecasting workflow. Never selects models and never waits for completion.
+description: Submits forecasting training jobs to a compute backend and returns immediately, resolving the pipeline spec, mapping resources, and writing a status file for the monitor. Use when job specs are ready to dispatch; never for selecting models or waiting on completion.
 ---
 
 # Training Scheduler

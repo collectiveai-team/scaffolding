@@ -1,6 +1,6 @@
 ---
 name: data-profiling
-description: Time-series profiling techniques — stationarity, seasonality, long-range memory, entropy, autocorrelation, missingness — with the statistical test to run, how to read the result, and which preprocessing step it implies. Use when writing or reviewing EDA code, interpreting profiling output, or deciding which preprocessing and model family a series needs.
+description: Profiles a time series across stationarity, seasonality, long-range memory, entropy, autocorrelation, and missingness, giving the test to run, how to read it, and the preprocessing it implies. Use when writing or reviewing EDA code, interpreting profiling output, or choosing a preprocessing step or model family.
 ---
 
 # Data Profiling for Time Series

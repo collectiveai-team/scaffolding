@@ -1,6 +1,6 @@
 ---
 name: datascience-research-journal
-description: Maintain a scientific research journal for a data science project in Obsidian-friendly markdown — one entry per experiment with hypothesis, methodology, results, and conclusions, plus cross-linked findings and an index. Use to log a phase plan before it runs, record results after, or synthesize the project at the end.
+description: Maintains a scientific research journal in Obsidian-friendly markdown, with one entry per experiment covering hypothesis, methodology, results, and conclusions, plus cross-linked findings. Use when logging a plan before a run, recording results after one, or synthesizing a project at the end.
 ---
 
 # Research Journal

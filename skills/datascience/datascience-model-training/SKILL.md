@@ -1,6 +1,6 @@
 ---
 name: datascience-model-training
-description: Train and tune time-series forecasting models — baselines, statistical models, deep architectures, gradient-boosted regressors, and ensembles — with segment-aware series construction, hyperparameter search, backtesting, and experiment tracking. Use for the modeling detail of phase 6 of the forecasting workflow.
+description: Trains and tunes time-series forecasting models — baselines, statistical, deep, gradient-boosted, and ensembles — with segment-aware series construction, hyperparameter search, and backtesting. Use when fitting forecasting models, comparing candidates against a baseline, or training on a discontinuous series.
 ---
 
 # Model Training

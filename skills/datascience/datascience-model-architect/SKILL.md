@@ -1,6 +1,6 @@
 ---
 name: datascience-model-architect
-description: Decide what to train — select forecasting model architectures from EDA evidence, define hyperparameter search spaces and compute budgets, and write a job spec file. Use as phase 5 of the forecasting workflow. Selects and specifies only; never submits jobs or monitors runs.
+description: Selects forecasting model architectures from EDA evidence, defines hyperparameter search spaces and compute budgets, and writes a job spec file. Use when deciding what to train, before any job is submitted; never for submitting jobs or monitoring runs.
 ---
 
 # Model Architect

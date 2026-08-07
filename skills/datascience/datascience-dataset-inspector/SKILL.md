@@ -1,6 +1,6 @@
 ---
 name: datascience-dataset-inspector
-description: Validate a training dataset before model training with seven programmatic checks — feature completeness, distribution shift, segment-boundary leakage, target representativeness, window completeness, feature range, correlation stability — each returning PASS/WARNING/FAIL with supporting plots. Use after feature engineering and before spending any training compute.
+description: Validates a training dataset with seven programmatic checks — completeness, distribution shift, segment-boundary leakage, target representativeness, window completeness, feature range, correlation stability. Use when features are built and before spending training compute, or when a model trains cleanly but predicts poorly.
 ---
 
 # Dataset Inspector
