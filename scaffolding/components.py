@@ -85,6 +85,15 @@ ASTGREP_RULES = [
     "cli-typed-framework",
     "arch-database-package",
 ]
+# Pinned to an upstream release tag. Unpinned, `npx skills add` tracks the default
+# branch, so an upstream rename lands silently in every scaffolded repo (v1.2.0
+# renamed writing-great-skills -> writing-for-agents with no alias, and the installer
+# skips unknown names without failing). Note the ref must be a `#fragment`: the
+# `owner/repo@ref` form is parsed as a skill-name filter and the ref is ignored.
+# The skills-drift workflow reports when a newer tag is available.
+MATTPOCOCK_REF = "v1.2.3"
+MATTPOCOCK_REPO = "mattpocock/skills"
+MATTPOCOCK_SOURCE = f"{MATTPOCOCK_REPO}#{MATTPOCOCK_REF}"
 MATTPOCOCK_SKILLS = [
     "grill-with-docs",
     "triage",
@@ -102,10 +111,12 @@ MATTPOCOCK_SKILLS = [
     "codebase-design",
     "code-review",
     "resolving-merge-conflicts",
+    "wizard",
     "grill-me",
     "teach",
-    "writing-great-skills",
+    "writing-for-agents",
     "grilling",
+    "wait-what",
 ]
 LOCAL_SKILLS = ["ask-user", "journalist", "handoff", "test-smell-review"]
 DEFAULT_CI_PARTS = ["tests", "security", "docker"]
@@ -518,7 +529,7 @@ def plan_skills(ctx: Context) -> list[Op]:
             "npx",
             "skills",
             "add",
-            "mattpocock/skills",
+            MATTPOCOCK_SOURCE,
             "--agent",
             install_agent,
             "--yes",
@@ -539,7 +550,7 @@ def plan_skills(ctx: Context) -> list[Op]:
         ["npx", "skills", "add", "dmno-dev/varlock", "--agent", install_agent, "--yes"],
     ]
     labels = [
-        f"matt pocock skills ({AGENTS_SKILLS_DIR})",
+        f"matt pocock skills @ {MATTPOCOCK_REF} ({AGENTS_SKILLS_DIR})",
         f"local skills: {' '.join(LOCAL_SKILLS)} ({AGENTS_SKILLS_DIR})",
         f"dmno-dev/varlock skill ({AGENTS_SKILLS_DIR})",
     ]
