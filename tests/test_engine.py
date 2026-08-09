@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from scaffolding.checks import run_checks
-from scaffolding.components import AGENTS_MARKER, STANDARDS_MARKER
+from scaffolding.components import AGENTS_MARKER, LOCAL_SKILLS, STANDARDS_MARKER
 from scaffolding.engine import UnknownComponent, apply, build_plan, select_components
 from scaffolding.facts import detect
 from scaffolding.plan import Agent, Decisions, Disposition
@@ -526,3 +526,21 @@ def test_check_passes_for_codex_only_repo(repo: Path):
     assert "opencode.jsonc valid" not in names
     assert "CLAUDE.md -> AGENTS.md" not in names
     assert names["AGENTS.md section"].ok
+
+
+# --- local skills: every declared slug ships a real SKILL.md -----------------
+def test_local_skills_each_ship_a_skill_file():
+    """Guard the LOCAL_SKILLS -> skills/**/SKILL.md seam directly.
+
+    LOCAL_SKILLS drives `npx skills add collectiveai-team/scaffolding --skill
+    <slug>`; a slug with no matching skills/**/<slug>/SKILL.md would silently
+    fail at install time in every target repo.
+    """
+    from pathlib import Path as _Path
+
+    repo_root = _Path(__file__).resolve().parent.parent
+    skill_files = {p.parent.name: p for p in (repo_root / "skills").glob("*/*/SKILL.md")}
+    for slug in LOCAL_SKILLS:
+        assert slug in skill_files, f"LOCAL_SKILLS declares {slug!r} but no matching SKILL.md"
+        frontmatter = skill_files[slug].read_text(encoding="utf-8")
+        assert f"name: {slug}" in frontmatter
