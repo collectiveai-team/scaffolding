@@ -225,39 +225,50 @@ Claude — do **not** re-run the installer per agent.
 
 **`skills-lock.json` is the tracked skills manifest** (CES-107): it declares which
 skills the repo uses and where they come from, and it is committed.
-`.agents/skills/` is *derived* from it and stays gitignored. Despite the filename
-it pins no version and verifies no hash — it buys set-level reproducibility
-(which skills, from where), not version-level. Call it a manifest, not a lock.
+`.agents/skills/` is *derived* from it and stays gitignored. It is the
+`pyproject.toml` / `uv.lock` split: the house baseline is the intent, this file is
+the resolved set. The guarantee is weaker than `uv.lock` — entries carry a `ref`
+only when the source was pinned (`owner/repo#v1.2.3`), tags are mutable, and
+`computedHash` is written but never verified on restore. Call it a manifest.
 
-The `skills` component picks one of four paths:
+**The `skills` CLI owns this file. Never write it from scaffolding, and never
+hand-edit it.** Re-serialising it drops `ref`, `skillPath` and `computedHash`;
+upstream notes that losing `skillPath` alone makes `update` refetch every skill in
+the source repo. Adding a skill is `npx skills add`.
+
+The `skills` component picks one of two paths:
 
 | Repo state | What happens |
 | --- | --- |
-| Manifest tracked | restore, then offer to top up missing house-baseline skills |
-| Manifest gitignored | offer to un-ignore it, then as above |
-| Skills installed, no manifest | offer to adopt them into a manifest, then restore |
-| Nothing | seed the house baseline, which creates the manifest |
+| Manifest present | restore from it — it is the source of truth |
+| No manifest | seed the house baseline, which makes the CLI write the manifest |
 
-Each offer is a decision defaulting to **yes**, so `--yes` and non-interactive runs
-converge without prompting. Restore is:
+Plus one refusal: a manifest that exists but does not parse is **deferred**, never
+overwritten. If the manifest is gitignored, install offers to un-ignore it, a
+decision defaulting to **yes** — the only consent this component asks for. Restore
+is:
 
 ```bash
 npx skills experimental_install
 ```
 
-Seeding still uses `npx skills add <source> --agent opencode --yes --skill …`, but
-those ops now assert a post-condition: if the command runs and the manifest does
-not end up declaring the requested skills, the install **fails loudly** instead of
-reporting success. A missing `npx` is still a non-fatal skip.
+**The manifest is never topped up towards the house baseline.** A skill the repo
+dropped is a decision, not a gap (CES-30). The baseline seeds a repo that has none.
 
-Adoption resolves installed names against the house baseline. Provenance is not
-recoverable from disk — an installed skill directory holds only `SKILL.md`, and
-without a manifest `skills list --json` reports `source: null` — so a skill outside
-the baseline is reported as unresolvable and needs its entry added by hand. It is
-never guessed.
+Seeding uses `npx skills add <source> --agent opencode --yes --skill …`, and those
+ops assert a post-condition: the named skills must exist **in `.agents/skills/`
+afterwards**, or the install fails loudly. This is not belt-and-braces. `skills
+add` is not atomic and does not signal partial failure — adding `tdd triage
+no-such-skill-xyz` installs two skills, writes the manifest and exits **0**, so an
+upstream rename is invisible to the exit code. The post-condition reads the tree
+rather than the manifest, because the manifest is written by the same tool being
+verified. A missing `npx` is still a non-fatal skip.
 
-Skills this repo *authors* are declared with `"sourceType": "local"` so restore
-reads the working tree instead of overwriting them with the published copy.
+Provenance is not recoverable from disk — an installed skill directory holds only
+`SKILL.md`, and without a manifest `skills list --json` reports `source: null`. So
+a repo with installed skills but no manifest gets the baseline seeded, and anything
+outside the baseline is reported as a warning naming the skill. No entry is ever
+fabricated for it; the fix is one `npx skills add` per skill.
 
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering
@@ -271,7 +282,8 @@ tracker when the user explicitly wants it.
 Run `scaffolding check` — it asserts the completeness checklist (gitignore
 entries incl. `!.env.schema`; prek `betterleaks` hook; `.env.schema` tracked and
 `.env` ignored; ast-grep config when the hook is present; the skills manifest
-present, not gitignored, tracked, and matching `.agents/skills/`; the `AGENTS.md`
+present, not gitignored, tracked, and reconciled against `.agents/skills/` in both
+directions — declared-but-absent and installed-but-undeclared; the `AGENTS.md`
 section, which is the only universal requirement). Agent config is validated
 **only when present**: `opencode.jsonc` (schema/plugin/permission), `.claude/settings.json`
 (secret `permissions.deny`), and `CLAUDE.md` → `AGENTS.md`. Then confirm any

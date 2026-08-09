@@ -38,15 +38,17 @@ decisions take their default.
 _Avoid_: option, setting, flag
 
 **Post-condition**:
-An assertion attached to a run op declaring what must be true afterwards. Its absence is why
-five weeks of installs silently installed no skills.
+An assertion attached to a run op declaring what must be true **on disk** afterwards. Asserted
+against the derived tree, never against a file the tool being verified just wrote. Its absence is
+why an upstream rename removed a skill from every fresh install without anyone noticing.
 
 ### Skills
 
 **Skills manifest**:
 `skills-lock.json` — the tracked declaration of which skills a repo uses and where they come
-from. Despite the filename it pins no version and verifies no hash, so it buys set-level
-reproducibility only.
+from. **Owned by the third-party `skills` CLI**: scaffolding reads it and never writes it. It
+records a `ref` only when the source was pinned, and its `computedHash` is never verified on
+restore, so it reproduces which skills from where at what ref — not bytes.
 _Avoid_: lockfile, skills lock, skill list
 
 **Derived skills tree**:
@@ -55,19 +57,10 @@ the source of truth.
 _Avoid_: installed skills, skills directory
 
 **House baseline**:
-The skill set the scaffolder ships by default. What a repo's manifest is compared against.
-_Avoid_: default skills, curated catalog
-
-**Top-up**:
-Adding house-baseline skills that a repo's manifest does not declare. Merges by default, always
-asked.
-_Avoid_: sync, update, upgrade
-
-**Adoption**:
-Building a manifest for a repo that has a derived skills tree but no manifest. Resolves names
-against the house baseline; provenance is unrecoverable from disk, so anything else is surfaced
-rather than guessed.
-_Avoid_: import, migrate, reconstruct
+The skill set the scaffolder **seeds a repo with** when it has no manifest. A starting point, not
+a set the repo is held to: once a manifest exists it is authoritative, and the baseline is not
+reapplied.
+_Avoid_: default skills, curated catalog, required skills
 
 **Authored skill**:
 A skill whose source of truth is this repo's `skills/` tree. Declared with `sourceType: local` so

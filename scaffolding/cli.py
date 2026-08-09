@@ -20,7 +20,8 @@ from scaffolding.settings import Settings
 app = App(
     name="scaffolding",
     help="Deterministic, clean-adds-only repo bootstrap. Existing files are never "
-    "edited or overwritten — merges are deferred to the agentic guide.",
+    "edited or overwritten — merges are deferred to the agentic guide. The one "
+    "exception is un-ignoring the skills manifest, which is asked for first.",
 )
 
 
@@ -166,7 +167,8 @@ def install(
 
     code = apply(plan, root)
     console.console.print(
-        f"\n[green]Done.[/green] Existing files left untouched; see \\[defer] notices and "
+        f"\n[green]Done.[/green] Existing files left untouched (bar a consented "
+        f"\\[edit]); see \\[defer] notices and "
         f"merge via the guide: {settings.raw_base}/guide.md"
     )
     if code:

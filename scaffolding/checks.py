@@ -140,6 +140,11 @@ def _check_skills_manifest(root: Path) -> list[CheckResult]:
         )
     )
 
+    # Drift is checked in both directions. A declared-but-absent skill means the
+    # tree is stale; an installed-but-undeclared one means the repo has a skill that
+    # evaporates on a fresh clone, since .agents/skills/ is gitignored. That second
+    # case is the failure mode this standard exists to eliminate, so it cannot be
+    # the one direction we do not look at.
     installed = set(installed_names(root, AGENTS_SKILLS_DIR))
     missing = sorted(manifest.names - installed)
     out.append(
@@ -149,6 +154,17 @@ def _check_skills_manifest(root: Path) -> list[CheckResult]:
             "ok"
             if not missing
             else f"declared but not in {AGENTS_SKILLS_DIR}: {', '.join(missing)}",
+        )
+    )
+    extra = sorted(installed - manifest.names)
+    out.append(
+        CheckResult(
+            "installed skills declared",
+            not extra,
+            "ok"
+            if not extra
+            else f"in {AGENTS_SKILLS_DIR} but not in {MANIFEST_FILE}: {', '.join(extra)} — "
+            "run `npx skills add <source> --skill <name>` to declare them",
         )
     )
     return out

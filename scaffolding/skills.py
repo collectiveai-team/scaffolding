@@ -2,16 +2,38 @@
 
 ``skills-lock.json`` is the tracked declaration of a repo's agent skills; the
 ``.agents/skills/`` tree is *derived* from it and is never the source of truth.
+This is the ``pyproject.toml`` / ``uv.lock`` split, with the house baseline below
+playing the role of the declared intent and the lock file the resolved set.
 
-Naming, deliberately: the third-party ``skills`` CLI owns this file's schema and
-calls it a lock, but it pins no version and verifies no hash — a bogus
-``computedHash`` is accepted and silently rewritten. It is a **manifest**. It
-buys set-level reproducibility (which skills, from where), not version-level
-reproducibility and not integrity. Do not describe it as a lock.
+**The `skills` CLI owns this file. We read it; we never write it.** That is the
+central constraint of this module, and it is not stylistic. The upstream schema
+(``vercel-labs/skills``, ``src/local-lock.ts``) carries ``ref``, ``skillPath`` and
+``computedHash`` per entry, and its own comments explain the cost of losing them:
 
-This module holds the manifest logic and the op-building for the ``skills``
-component. It takes primitives rather than a ``Context`` so that it stays below
-``components`` in the import order and is testable through its own seam.
+    /** Path to the skill's SKILL.md within the source repo.
+     *  Required to re-install only this skill on update — without it, an update
+     *  would refetch every skill in the source repo. */
+
+Re-serialising the file from a narrower Python model silently drops those fields.
+The same source is explicit that the file is ours to commit:
+
+    /** This file is meant to be checked into version control. */
+
+What the lock does and does not buy, measured against ``skills@1.5.22`` rather
+than assumed:
+
+- ``ref`` records the branch or tag used at install time, and only when the source
+  was pinned (``owner/repo#v1.2.3``). Tags are mutable, so this is tag-level, not
+  commit-level, reproducibility.
+- ``computedHash`` is written on ``add`` and compared only in ``sync.ts`` on the
+  ``experimental_sync``/node_modules path. Restore never verifies it. There is no
+  integrity guarantee.
+
+So: reproducible in *which skills, from where, at what ref*. Not byte-reproducible.
+Say that, and do not call it a lock in the ``uv.lock`` sense.
+
+This module takes primitives rather than a ``Context`` so that it stays below
+``components`` in the import order (CES-5) and is testable through its own seam.
 """
 
 from __future__ import annotations
@@ -26,7 +48,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 MANIFEST_FILE = "skills-lock.json"
-MANIFEST_VERSION = 1
 
 # The engine may delete ONLY these literal lines from a .gitignore. Literals, never
 # patterns — that is what keeps "clean-adds plus a whitelist" a checkable invariant.
@@ -64,7 +85,12 @@ VARLOCK_SKILLS = ["varlock"]
 
 @dataclass(frozen=True)
 class SkillEntry:
-    """One declared skill: its name and where it comes from."""
+    """One skill in the *house baseline*: its name and where it comes from.
+
+    This is our declared intent, not a row of the lock file. Nothing here is ever
+    serialised into ``skills-lock.json`` — it only ever becomes ``skills add``
+    arguments, and the CLI writes the resulting entry itself.
+    """
 
     name: str
     source: str
@@ -73,34 +99,13 @@ class SkillEntry:
 
 @dataclass(frozen=True)
 class Manifest:
-    """The declared skill set of a repo."""
+    """The declared skill set, read from the lock file.
 
-    entries: list[SkillEntry]
-
-    @property
-    def names(self) -> set[str]:
-        return {e.name for e in self.entries}
-
-    def to_json(self) -> str:
-        skills = {
-            e.name: {"source": e.source, "sourceType": e.source_type}
-            for e in sorted(self.entries, key=lambda e: e.name)
-        }
-        return json.dumps({"version": MANIFEST_VERSION, "skills": skills}, indent=2) + "\n"
-
-
-@dataclass(frozen=True)
-class Reconstruction:
-    """A manifest rebuilt from the derived tree, plus what could not be resolved.
-
-    Provenance is not recoverable from disk: an installed skill directory holds only
-    ``SKILL.md``, and with no manifest ``skills list --json`` reports ``source: null``.
-    So names are resolved against the house baseline and anything else is surfaced,
-    never guessed.
+    Names only. We compare against them and we plan from them; we never round-trip
+    the file, so the fields we do not model cannot be lost.
     """
 
-    entries: list[SkillEntry]
-    unresolved: list[str]
+    names: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -120,13 +125,16 @@ class SkillsPlanInput:
     agent: str
     skills_dir: str
     manifest_ignored: bool
-    top_up: bool = True
     unignore: bool = True
-    adopt: bool = True
 
 
 def house_baseline() -> list[SkillEntry]:
-    """Return the skill set the scaffolder ships by default."""
+    """Return the skill set the scaffolder seeds a repo with.
+
+    Used only when a repo has no lock file yet. It is a starting point, not a set
+    the repo is held to: once the lock exists it is the source of truth, and a
+    skill the repo dropped stays dropped (CES-30).
+    """
     return [
         *(SkillEntry(n, MATTPOCOCK_SOURCE) for n in MATTPOCOCK_SKILLS),
         *(SkillEntry(n, SCAFFOLDING_SOURCE) for n in LOCAL_SKILLS),
@@ -139,7 +147,13 @@ def manifest_path(root: Path) -> Path:
 
 
 def read_manifest(root: Path) -> Manifest | None:
-    """Parse the manifest, or None when absent/unreadable/malformed."""
+    """Parse the declared skill names, or None when absent/unreadable/malformed.
+
+    ``None`` deliberately conflates "absent" and "unparseable". Callers must not
+    treat it as "safe to create one" — use :func:`manifest_path` to tell the two
+    apart, because overwriting a file we failed to parse is exactly the destructive
+    move this module exists to avoid.
+    """
     path = manifest_path(root)
     if not path.exists():
         return None
@@ -152,17 +166,7 @@ def read_manifest(root: Path) -> Manifest | None:
     skills = raw.get("skills")
     if not isinstance(skills, dict):
         return None
-    return Manifest(
-        entries=[
-            SkillEntry(
-                name=name,
-                source=str(body.get("source") or ""),
-                source_type=str(body.get("sourceType") or "github"),
-            )
-            for name, body in skills.items()
-            if isinstance(body, dict)
-        ]
-    )
+    return Manifest(names=frozenset(str(name) for name in skills))
 
 
 def installed_names(root: Path, skills_dir: str) -> list[str]:
@@ -173,19 +177,22 @@ def installed_names(root: Path, skills_dir: str) -> list[str]:
     return sorted(p.name for p in tree.iterdir() if (p / "SKILL.md").is_file())
 
 
-def reconstruct(installed: list[str]) -> Reconstruction:
-    """Case C: rebuild a manifest from installed names by resolving against the baseline."""
-    known = {e.name: e for e in house_baseline()}
-    return Reconstruction(
-        entries=[known[n] for n in installed if n in known],
-        unresolved=[n for n in installed if n not in known],
-    )
+def ignores_literal_line(root: Path, line: str) -> bool:
+    """Report whether ``<root>/.gitignore`` carries ``line`` as an exact literal entry.
 
-
-def baseline_gap(manifest: Manifest) -> list[SkillEntry]:
-    """Baseline skills the manifest does not declare."""
-    have = manifest.names
-    return [e for e in house_baseline() if e.name not in have]
+    Detection for the unignore op must match what remediation can actually do.
+    ``git check-ignore`` answers a broader question — it is satisfied by ``*.json``,
+    by ``/skills-lock.json``, by ``.git/info/exclude`` — and acting on that answer
+    with a literal line removal silently does nothing while reporting success.
+    """
+    path = root / ".gitignore"
+    if not path.is_file():
+        return False
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return any(existing.strip() == line for existing in raw.splitlines())
 
 
 def add_commands(entries: list[SkillEntry], agent: str) -> list[AddCommand]:
@@ -223,14 +230,17 @@ def restore_argv() -> list[str]:
     return ["npx", "skills", "experimental_install"]
 
 
-def _restore_op(label: str) -> Op:
+def _restore_op(manifest: Manifest, skills_dir: str) -> Op:
+    """Restore the declared set, and assert it actually landed on disk."""
     return Op(
         "skills",
         "run",
-        label,
+        f"restore declared skills ({skills_dir})",
         Disposition.RUN,
         cmd=restore_argv(),
-        detail=f"restore from {MANIFEST_FILE}",
+        detail=f"{len(manifest.names)} declared in {MANIFEST_FILE}",
+        expect_skills=sorted(manifest.names),
+        expect_dir=skills_dir,
     )
 
 
@@ -245,52 +255,14 @@ def _seed_ops(entries: list[SkillEntry], agent: str, skills_dir: str) -> list[Op
             cmd=cmd.argv,
             detail=f"{len(cmd.names)} skill" + ("s" if len(cmd.names) != 1 else ""),
             expect_skills=cmd.names,
+            expect_dir=skills_dir,
         )
         for cmd in add_commands(entries, agent)
     ]
 
 
-def _adopt_ops(inp: SkillsPlanInput, installed: list[str]) -> list[Op]:
-    """Case C: derived tree present, no manifest."""
-    if not inp.adopt:
-        return [
-            Op(
-                "skills",
-                "noop",
-                MANIFEST_FILE,
-                Disposition.SKIP,
-                detail=f"adoption declined — {len(installed)} installed skills stay undeclared",
-            )
-        ]
-    rebuilt = reconstruct(installed)
-    ops = [
-        Op(
-            "skills",
-            "write",
-            MANIFEST_FILE,
-            Disposition.ADD,
-            path=str(manifest_path(inp.root)),
-            content=Manifest(entries=rebuilt.entries).to_json(),
-            detail=f"adopt {len(rebuilt.entries)} installed skill"
-            + ("s" if len(rebuilt.entries) != 1 else ""),
-        )
-    ]
-    ops += [
-        Op(
-            "skills",
-            "noop",
-            f"{MANIFEST_FILE}: {name}",
-            Disposition.WARN,
-            detail="installed but its source is unknown — add the entry by hand",
-        )
-        for name in rebuilt.unresolved
-    ]
-    ops.append(_restore_op(f"restore adopted skills ({inp.skills_dir})"))
-    return ops
-
-
 def _unignore_ops(inp: SkillsPlanInput) -> list[Op]:
-    """Case B: the manifest exists but git is told to ignore it."""
+    """Build the ops for a manifest that exists but that git is told to ignore."""
     if not inp.unignore:
         return [
             Op(
@@ -299,6 +271,20 @@ def _unignore_ops(inp: SkillsPlanInput) -> list[Op]:
                 ".gitignore",
                 Disposition.WARN,
                 detail=f"{MANIFEST_FILE} stays ignored — the manifest cannot be tracked",
+            )
+        ]
+    if not ignores_literal_line(inp.root, MANIFEST_FILE):
+        return [
+            Op(
+                "skills",
+                "noop",
+                ".gitignore",
+                Disposition.WARN,
+                detail=(
+                    f"{MANIFEST_FILE} is ignored by a pattern this cannot safely edit "
+                    f"(not a literal `{MANIFEST_FILE}` line in .gitignore) — "
+                    "unignore it by hand so the manifest can be tracked"
+                ),
             )
         ]
     return [
@@ -314,35 +300,66 @@ def _unignore_ops(inp: SkillsPlanInput) -> list[Op]:
     ]
 
 
-def _top_up_ops(inp: SkillsPlanInput, gap: list[SkillEntry]) -> list[Op]:
-    if not gap:
-        return []
-    if not inp.top_up:
+def _undeclared_ops(installed: list[str], baseline: list[SkillEntry]) -> list[Op]:
+    """Warn about installed skills that seeding will not declare.
+
+    Provenance is not recoverable from disk: an installed directory holds only
+    ``SKILL.md``, and with no lock file ``skills list --json`` reports
+    ``source: null``. We will not guess it, and we will not fabricate a lock entry
+    — the fix is one ``npx skills add`` per skill, which lets the CLI record the
+    source, ref and hash it actually used.
+    """
+    known = {e.name for e in baseline}
+    return [
+        Op(
+            "skills",
+            "noop",
+            f"{MANIFEST_FILE}: {name}",
+            Disposition.WARN,
+            detail=(
+                "installed but not in the house baseline, and its source cannot be "
+                "recovered from disk — run `npx skills add <source> --skill "
+                f"{name}` so the CLI declares it"
+            ),
+        )
+        for name in installed
+        if name not in known
+    ]
+
+
+def plan_manifest_ops(inp: SkillsPlanInput) -> list[Op]:
+    """Two states: the repo has a lock file, or it does not.
+
+    Lock present  -> restore from it. It is the source of truth, full stop: we do
+                     not top it up towards the house baseline, because a skill the
+                     repo removed is a decision, not a gap (CES-30). Adding one
+                     back is ``npx skills add``.
+    Lock absent   -> seed the house baseline, which makes the CLI write the lock.
+
+    A third case exists only to be refused: a lock file that is present but does
+    not parse. Seeding would make the CLI rewrite it, so we stop and say so.
+    """
+    manifest = read_manifest(inp.root)
+
+    if manifest is None and manifest_path(inp.root).exists():
         return [
             Op(
                 "skills",
                 "noop",
-                "house baseline",
-                Disposition.SKIP,
-                detail="top-up declined — missing: " + ", ".join(e.name for e in gap),
+                MANIFEST_FILE,
+                Disposition.DEFER,
+                detail="exists but is unreadable or malformed — fix or delete it by hand; "
+                "installing would overwrite it",
             )
         ]
-    return _seed_ops(gap, inp.agent, inp.skills_dir)
-
-
-def plan_manifest_ops(inp: SkillsPlanInput) -> list[Op]:
-    """Build the ops for whichever of the four CES-107 migration cases this repo is in."""
-    manifest = read_manifest(inp.root)
 
     if manifest is None:
-        installed = installed_names(inp.root, inp.skills_dir)
-        if installed:
-            return _adopt_ops(inp, installed)  # case C
-        return _seed_ops(house_baseline(), inp.agent, inp.skills_dir)  # case D
+        baseline = house_baseline()
+        ops = _undeclared_ops(installed_names(inp.root, inp.skills_dir), baseline)
+        return [*ops, *_seed_ops(baseline, inp.agent, inp.skills_dir)]
 
     ops: list[Op] = []
     if inp.manifest_ignored:
-        ops += _unignore_ops(inp)  # case B
-    ops.append(_restore_op(f"restore declared skills ({inp.skills_dir})"))  # case A
-    ops += _top_up_ops(inp, baseline_gap(manifest))
+        ops += _unignore_ops(inp)
+    ops.append(_restore_op(manifest, inp.skills_dir))
     return ops

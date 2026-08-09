@@ -8,6 +8,10 @@
   (component registry), `templates/` (bundled package data). The CLI is the
   single deterministic engine; keep it **clean-adds-only** — it must never edit,
   merge, or overwrite existing target files (existing targets are deferred).
+  The one bounded exception is the `unignore` op, which may delete a literal line
+  listed in `UNIGNORE_WHITELIST` (`scaffolding/skills.py`) from `.gitignore`. It is
+  reported under `edits`, not `clean_adds`. Do not widen it, and do not remove it
+  as an invariant violation — see `docs/adr/0001-scoped-unignore-op.md`.
 - `install.sh` — thin bootstrap shim (ensure `uv`, then `uvx … scaffolding
   install`). Keep it minimal and keep its raw URL pointing at
   `collectiveai-team/scaffolding` on `main`.

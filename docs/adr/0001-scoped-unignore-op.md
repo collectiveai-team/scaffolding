@@ -13,6 +13,16 @@ We added an `unignore` op that removes **one literal line drawn from an enumerat
 (`UNIGNORE_WHITELIST` in `scaffolding/skills.py`) from `.gitignore`, gated behind a `Decision`
 that defaults to yes. It refuses any line outside the whitelist by raising.
 
+Two properties keep the op honest, both learned the hard way:
+
+- **Detection matches remediation.** The op is planned only when `.gitignore` carries the literal
+  line. `git check-ignore` is satisfied by `*.json`, by `/skills-lock.json`, by
+  `.git/info/exclude` — planning off that broader answer produces a run that removes nothing and
+  reports success. Anything we cannot fix with a literal line removal is a warning instead.
+- **The rewrite is byte-preserving.** Newline translation is disabled on both ends, so a CRLF or
+  mixed-ending `.gitignore` keeps its endings and a file without a trailing newline does not gain
+  one. Removing one line must not produce an all-lines diff.
+
 ## Considered options
 
 - **Check and instruct instead.** `scaffolding check` fails with the exact remedy and a human
@@ -29,10 +39,20 @@ that defaults to yes. It refuses any line outside the whitelist by raising.
 whitelist." This remains checkable because the whitelist is a literal frozenset in code, not a
 pattern language — you can read it and enumerate every destructive edit the engine can perform.
 
+That claim is only worth making if it is true in the report as well as in the code, so the op is
+reported under `edits` in `plan --json`, not under `clean_adds`. A field named `clean_adds` that
+contains a line deletion falsifies the invariant it is supposed to document.
+
+`AGENTS.md` states the amended invariant, not the absolute one. The ADR is not always in context
+and `AGENTS.md` is; leaving the two in contradiction would mean the next agent reads
+"never edits existing files", finds this op, and deletes it as a violation.
+
 Future components will cite this precedent. The line to hold is the *literal whitelist*, not the
 op: adding a new literal is a reviewable one-line change, whereas accepting a regex, a glob, or a
 caller-supplied string would give the capability away entirely.
 
-Note the asymmetry this preserves. The manifest top-up is also a merge, but the third-party
-`skills` CLI performs that write as a side effect of a run op — the engine itself never touches
-the file. The unignore op is the only place the engine edits an existing target.
+Note what this does **not** authorise. `skills-lock.json` is written only by the third-party
+`skills` CLI, as a side effect of a run op; the engine never writes it. An earlier draft of
+CES-107 had scaffolding reconstruct that file when it could not be parsed, which is a destructive
+write to an existing target outside the whitelist — exactly what this ADR exists to bound. That
+path was removed: an unparseable manifest is now deferred with a warning.

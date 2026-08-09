@@ -23,7 +23,6 @@ from scaffolding.plan import Agent, Decision, Decisions, Disposition, Op
 from scaffolding.skills import (
     MANIFEST_FILE,
     SkillsPlanInput,
-    installed_names,
     manifest_path,
     plan_manifest_ops,
 )
@@ -507,36 +506,20 @@ def _decided(answer: bool | None, default: bool) -> bool:
     return default if answer is None else answer
 
 
-def _register_skills_decisions(
-    ctx: Context, *, ignored: bool, manifest_exists: bool, has_installed: bool
-) -> None:
-    """Ask before diverging from what the repo already declares (CES-30).
+def _register_skills_decisions(ctx: Context, *, ignored: bool) -> None:
+    """Ask before editing a file the repo owns (CES-30).
 
-    Only the questions the repo's state actually raises: a repo with no manifest and
-    no installed skills is being seeded, and has nothing to consent to.
+    Exactly one question, and only when the repo is in the state that raises it.
+    There is nothing to ask about the skill set itself: if a lock file exists it is
+    the source of truth, and if it does not the repo is being seeded.
     """
-    if manifest_exists:
+    if ignored:
         ctx.add_decision(
             Decision(
                 2,
-                "skills_top_up",
-                "Add house-baseline skills this repo's manifest is missing?",
+                "skills_unignore",
+                f"Stop gitignoring {MANIFEST_FILE} so the skills manifest can be tracked?",
                 "yes",
-            )
-        )
-        if ignored:
-            ctx.add_decision(
-                Decision(
-                    2,
-                    "skills_unignore",
-                    f"Stop gitignoring {MANIFEST_FILE} so the skills manifest can be tracked?",
-                    "yes",
-                )
-            )
-    elif has_installed:
-        ctx.add_decision(
-            Decision(
-                2, "skills_adopt", "Adopt the installed skills into a tracked manifest?", "yes"
             )
         )
 
@@ -548,14 +531,8 @@ def plan_skills(ctx: Context) -> list[Op]:
         return [Op("skills", "noop", "skills", Disposition.SKIP, detail="npx not found")]
     register_agents_decision(ctx)
 
-    manifest_exists = manifest_path(ctx.root).exists()
-    ignored = manifest_exists and gitignored(ctx.root, MANIFEST_FILE)
-    _register_skills_decisions(
-        ctx,
-        ignored=ignored,
-        manifest_exists=manifest_exists,
-        has_installed=bool(installed_names(ctx.root, AGENTS_SKILLS_DIR)),
-    )
+    ignored = manifest_path(ctx.root).exists() and gitignored(ctx.root, MANIFEST_FILE)
+    _register_skills_decisions(ctx, ignored=ignored)
 
     # Skills install ONCE into the shared .agents/skills standard (read by opencode +
     # codex). Claude reaches the same files via the .claude/skills -> .agents/skills
@@ -566,9 +543,7 @@ def plan_skills(ctx: Context) -> list[Op]:
             agent=Agent.OPENCODE.value,
             skills_dir=AGENTS_SKILLS_DIR,
             manifest_ignored=ignored,
-            top_up=_decided(ctx.decisions.skills_top_up, True),
             unignore=_decided(ctx.decisions.skills_unignore, True),
-            adopt=_decided(ctx.decisions.skills_adopt, True),
         )
     )
 

@@ -106,14 +106,23 @@ hardcoded list:
 npx skills experimental_install
 ```
 
-Despite the filename the manifest pins no version and verifies no hash, so it
-gives set-level reproducibility (which skills, from where) and not version-level.
-It is a manifest, not a lock.
+Think `pyproject.toml` / `uv.lock`: the baseline below is the declared intent,
+`skills-lock.json` is the resolved set, `.agents/skills/` is the `.venv`. The
+analogy stops at the guarantee. Entries carry a `ref` only when the source was
+pinned (`owner/repo#v1.2.3`), tags are mutable, and the `computedHash` that is
+written is never verified on restore. So it reproduces *which skills, from where,
+at what ref* — not bytes. It is a manifest, not a lock.
 
-A repo with no manifest gets the house baseline seeded, which creates one. A repo
-that already has skills installed is offered adoption. A repo whose manifest is
-gitignored is offered an un-ignore. Every offer defaults to yes and is always
-asked, so `--yes` converges without prompting. To seed by hand:
+The `skills` CLI owns the file; scaffolding reads it and never writes it. Adding a
+skill is `npx skills add`, which records the source, ref and hash actually used.
+
+Two states, and one refusal. A repo **with** a manifest restores from it — it is
+the source of truth, and is never topped up towards the house baseline, so a skill
+you removed stays removed. A repo **without** one gets the baseline seeded, which
+creates it. A manifest that exists but does not parse is deferred, never
+overwritten. If the manifest is gitignored, install offers to un-ignore it — the
+one consent this asks for, since it is the one file the repo owns that scaffolding
+edits. To seed by hand:
 
 ```bash
 npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
