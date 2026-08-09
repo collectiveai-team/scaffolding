@@ -276,6 +276,46 @@ the baseline is seeded and both hazards are warned about before anything runs:
   gitignored, so there is no diff to recover a hand-edited copy from. Copy it out
   first.
 
+Both warnings are emitted at plan time. **Read them before accepting the plan** —
+after the run there is no diff showing what the seed replaced. Afterwards
+`scaffolding check` names what is still undeclared, and the fix is either
+`npx skills add <source> --skill <name>` with the real source, or deleting the
+directory.
+
+### Changing a repo's skill set
+
+Never by editing `components.py` — that is only the baseline for repos with no
+manifest. Always through the `skills` CLI, which records the source, ref and hash
+it actually used:
+
+| Situation | What to run |
+| --- | --- |
+| New repo | `scaffolding install`, then commit `skills-lock.json` |
+| Existing repo, first adoption | `scaffolding install`, accept the un-ignore prompt, commit |
+| Fresh clone / CI | `scaffolding install` (or `npx skills experimental_install`) |
+| Add a skill | `npx skills add <source> --agent opencode --yes --skill <name>`, commit |
+| Remove a skill | delete the directory **and** the manifest entry, `scaffolding check`, commit |
+| Skills installed, no manifest | `scaffolding install`, then read the warnings above |
+
+**Removing needs the manual path.** `npx skills remove` does not work for projects
+using `.agents/skills/`: the directory is shared by ~15 agents and the CLI keeps
+both the files and the manifest entry while any other detected agent still
+references the skill (`src/remove.ts:262-302`), so it reports success and changes
+nothing. `--agent '*'` is documented but rejected at runtime. Until that is fixed
+upstream:
+
+```bash
+rm -rf .agents/skills/<name>
+# delete the "<name>" entry from skills-lock.json
+scaffolding check    # fails if you did only one of the two
+git add -A && git commit
+```
+
+This is the one place a human edits the manifest, and it is a workaround, not the
+intended flow. `scaffolding check` compares both directions precisely so a
+half-finished removal cannot pass silently, and because the baseline is never
+re-applied, a removed skill stays removed.
+
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering
 skills assume. The upstream skill defaults the issue tracker to GitHub; for this

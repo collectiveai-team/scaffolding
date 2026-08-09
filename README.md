@@ -122,17 +122,81 @@ you removed stays removed. A repo **without** one gets the baseline seeded, whic
 creates it. A manifest that exists but does not parse is deferred, never
 overwritten. If the manifest is gitignored, install offers to un-ignore it — the
 one consent this asks for, since it is the one file the repo owns that scaffolding
-edits. To seed by hand:
-
-```bash
-npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
-npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
-npx skills add dmno-dev/varlock --agent opencode --yes
-```
+edits.
 
 Skills install once into `.agents/skills`; claude-code reaches them via the
 `.claude/skills` symlink created by the bootstrap, so there is no need to re-run
 the installer with `--agent claude-code` / `--agent codex`.
+
+### Working with skills
+
+| Situation | What to run |
+| --- | --- |
+| New repo | `scaffolding install`, then commit `skills-lock.json` |
+| Existing repo, first adoption | `scaffolding install`, accept the un-ignore prompt, commit |
+| Fresh clone / CI | `scaffolding install` (or `npx skills experimental_install`) |
+| Add a skill | `npx skills add <source> --agent opencode --yes --skill <name>`, commit |
+| Remove a skill | delete the directory **and** the manifest entry, `scaffolding check`, commit |
+| Skills installed, no manifest | `scaffolding install`, then read the warnings — see below |
+
+`components.py` is not part of any of these. It is the baseline for repos that have
+no manifest yet; changing a repo's skill set is always `npx skills`, and the CLI
+records the source, ref and hash it used.
+
+#### Skills installed, but no manifest
+
+The common migration case. Provenance is **not recoverable from disk**: an
+installed skill directory holds only `SKILL.md`, and with no manifest
+`skills list --json` reports `source: null`. So nothing is adopted or guessed —
+the baseline is seeded and install warns about both hazards before it runs:
+
+```
+[warn] skills-lock.json: our-private-skill
+       installed but not in the house baseline, and its source cannot be
+       recovered from disk — run `npx skills add <source> --skill our-private-skill`
+[warn] .agents/skills/tdd
+       already on disk and will be replaced by the seed — if it was edited by
+       hand, copy it out first; the derived tree is gitignored, so there is no
+       diff to recover it from
+```
+
+Afterwards `scaffolding check` names exactly what is left:
+
+```
+FAIL  installed skills declared  in .agents/skills but not in skills-lock.json:
+                                 our-private-skill
+```
+
+Declare it with its real source, or delete the directory. Either way the manifest
+and the tree end up agreeing, which is what the check enforces.
+
+#### Removing a skill
+
+`npx skills remove` **does not work** for projects using `.agents/skills/`. That
+directory is shared by ~15 agents, and the CLI keeps both the files and the
+manifest entry while any other detected agent still references the skill
+(`src/remove.ts:262-302`), so the command reports success and changes nothing.
+`--agent '*'` is documented but rejected at runtime. Until that is fixed upstream,
+remove by hand:
+
+```bash
+rm -rf .agents/skills/<name>
+# delete the "<name>" entry from skills-lock.json
+scaffolding check    # fails if you did only one of the two
+git add -A && git commit
+```
+
+`scaffolding check` compares the manifest and the tree in both directions
+precisely so a half-finished removal cannot pass silently. Because the baseline is
+never re-applied, a removed skill stays removed.
+
+To seed by hand instead of running the CLI:
+
+```bash
+npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff test-smell-review
+npx skills add dmno-dev/varlock --agent opencode --yes
+```
 
 ## Upstream skills from Matt Pocock
 
