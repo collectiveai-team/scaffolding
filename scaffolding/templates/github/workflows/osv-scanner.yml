@@ -23,7 +23,18 @@ permissions:
 jobs:
   osv-scanner:
     name: osv-scanner
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2
+    # A called workflow cannot hold more permissions than its caller, and the
+    # reusable job requests `security-events: write` to upload SARIF. Granting
+    # less makes the run fail at startup with zero jobs, so these are restated
+    # here rather than inherited from the top-level `contents: read`.
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    # Pinned to an exact immutable tag: `google/osv-scanner-action` publishes no
+    # floating `v2` tag or branch, so `@v2` is an unresolvable ref (startup
+    # failure, not a scan failure).
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.5.0
     with:
       scan-args: |-
         --lockfile=uv.lock
