@@ -264,11 +264,17 @@ upstream rename is invisible to the exit code. The post-condition reads the tree
 rather than the manifest, because the manifest is written by the same tool being
 verified. A missing `npx` is still a non-fatal skip.
 
+A repo with **installed skills but no manifest** is the common migration case.
 Provenance is not recoverable from disk — an installed skill directory holds only
-`SKILL.md`, and without a manifest `skills list --json` reports `source: null`. So
-a repo with installed skills but no manifest gets the baseline seeded, and anything
-outside the baseline is reported as a warning naming the skill. No entry is ever
-fabricated for it; the fix is one `npx skills add` per skill.
+`SKILL.md`, and without a manifest `skills list --json` reports `source: null` — so
+the baseline is seeded and both hazards are warned about before anything runs:
+
+- a skill **outside the baseline** stays on disk, undeclared, and `scaffolding
+  check` fails on it until `npx skills add <source> --skill <name>` declares it. No
+  entry is fabricated; a guessed source is worse than an honest gap.
+- a skill **sharing a baseline name** is overwritten by `skills add`. The tree is
+  gitignored, so there is no diff to recover a hand-edited copy from. Copy it out
+  first.
 
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering

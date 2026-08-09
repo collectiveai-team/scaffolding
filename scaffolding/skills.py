@@ -300,6 +300,35 @@ def _unignore_ops(inp: SkillsPlanInput) -> list[Op]:
     ]
 
 
+def _replaced_ops(
+    installed: list[str], baseline: list[SkillEntry], inp_skills_dir: str
+) -> list[Op]:
+    """Warn before seeding over a skill that is already on disk under the same name.
+
+    Seeding runs ``skills add``, which overwrites the directory. A repo that
+    hand-edited a skill sharing a baseline name would lose it silently, and the
+    derived tree is gitignored, so there is no diff to notice afterwards. Warned
+    rather than skipped: skipping would leave the skill installed and undeclared,
+    which is the state this standard exists to remove.
+    """
+    known = {e.name for e in baseline}
+    return [
+        Op(
+            "skills",
+            "noop",
+            f"{inp_skills_dir}/{name}",
+            Disposition.WARN,
+            detail=(
+                "already on disk and will be replaced by the seed — if it was "
+                "edited by hand, copy it out first; the derived tree is gitignored, "
+                "so there is no diff to recover it from"
+            ),
+        )
+        for name in installed
+        if name in known
+    ]
+
+
 def _undeclared_ops(installed: list[str], baseline: list[SkillEntry]) -> list[Op]:
     """Warn about installed skills that seeding will not declare.
 
@@ -355,7 +384,10 @@ def plan_manifest_ops(inp: SkillsPlanInput) -> list[Op]:
 
     if manifest is None:
         baseline = house_baseline()
-        ops = _undeclared_ops(installed_names(inp.root, inp.skills_dir), baseline)
+        installed = installed_names(inp.root, inp.skills_dir)
+        ops = _undeclared_ops(installed, baseline) + _replaced_ops(
+            installed, baseline, inp.skills_dir
+        )
         return [*ops, *_seed_ops(baseline, inp.agent, inp.skills_dir)]
 
     ops: list[Op] = []

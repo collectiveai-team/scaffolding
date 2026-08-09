@@ -110,16 +110,31 @@ def test_seed_ops_declare_a_post_condition_against_the_tree(repo: Path):
         assert op.expect_dir == SKILLS_DIR
 
 
+def test_seeding_warns_before_replacing_a_skill_already_on_disk(repo: Path):
+    """`skills add` overwrites the directory, and the tree is gitignored.
+
+    A hand-edited skill sharing a baseline name would otherwise be lost with no
+    diff to recover it from (CES-30).
+    """
+    _install_skill(repo, "tdd")  # in the house baseline
+    warned = [op for op in _plan(repo) if op.disposition is Disposition.WARN]
+    assert [op.target for op in warned] == [f"{SKILLS_DIR}/tdd"]
+    assert "replaced by the seed" in warned[0].detail
+
+
 def test_installed_skills_outside_the_baseline_are_surfaced_not_invented(repo: Path):
     """Provenance is unrecoverable from disk, so we refuse to fabricate a lock entry."""
     _install_skill(repo, "tdd")
     _install_skill(repo, "our-private-skill")
     ops = _plan(repo)
     assert "write" not in _kinds(ops)  # the CLI owns the lock; we never author one
-    warned = [op for op in ops if op.disposition is Disposition.WARN]
-    assert len(warned) == 1
-    assert "our-private-skill" in warned[0].target
-    assert "npx skills add" in warned[0].detail
+    undeclared = [
+        op
+        for op in ops
+        if op.disposition is Disposition.WARN and op.target.startswith(MANIFEST_FILE)
+    ]
+    assert [op.target for op in undeclared] == [f"{MANIFEST_FILE}: our-private-skill"]
+    assert "npx skills add" in undeclared[0].detail
 
 
 # --- state 2: lock file present ----------------------------------------------

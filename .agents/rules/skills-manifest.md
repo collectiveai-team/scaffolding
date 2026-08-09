@@ -70,12 +70,24 @@ standard asks for, because it is the only point where scaffolding edits a file t
 decision, not a gap (CES-30). The baseline seeds a repo that has none; it never holds a repo to a
 set it has since changed. Adding one back is `npx skills add`.
 
-## Provenance cannot be recovered from disk
+## Skills installed, but no manifest
 
-An installed skill directory holds only `SKILL.md`, and with no manifest `skills list --json`
-reports `source: null`. So when a repo has installed skills but no manifest, seeding declares the
-house baseline and anything outside it is reported as a warning naming the skill. It is never
-guessed, and no manifest entry is ever fabricated for it.
+The common migration case, and the one with two sharp edges. Provenance is **not recoverable from
+disk**: an installed skill directory holds only `SKILL.md`, and with no manifest
+`skills list --json` reports `source: null`. So seeding declares the house baseline, and install
+warns about both hazards *before* it runs anything:
+
+- **Installed, outside the baseline** (a private or hand-added skill). It stays on disk,
+  undeclared, and `scaffolding check` fails on it until you run
+  `npx skills add <source> --skill <name>`. No manifest entry is ever fabricated for it — we would
+  have to guess the source, and a wrong source is worse than an honest gap.
+- **Installed, sharing a baseline name.** `skills add` overwrites the directory, so a hand-edited
+  copy is lost. The derived tree is gitignored, so there is no diff to recover it from. Warned,
+  not skipped: skipping would leave it installed and undeclared, which is the state this standard
+  exists to remove. Copy it out first if you edited it.
+
+The end state is deliberate rather than tidy: the baseline is declared and installed, anything
+else is on disk and flagged. `scaffolding check` names exactly what is left to do.
 
 ## Seed and restore ops must deliver
 
