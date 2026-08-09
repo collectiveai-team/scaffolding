@@ -154,87 +154,73 @@ def _check_skills_manifest(root: Path) -> list[CheckResult]:
     return out
 
 
+def _check_gitignore(root: Path) -> CheckResult:
+    gi = root / ".gitignore"
+    if not gi.exists():
+        return CheckResult(".gitignore entries", False, ".gitignore missing")
+    present = {ln.rstrip() for ln in gi.read_text(encoding="utf-8").splitlines()}
+    missing = [e for e in GITIGNORE_ENTRIES if e not in present]
+    detail = "all present" if not missing else f"missing: {', '.join(missing)}"
+    return CheckResult(".gitignore entries", not missing, detail)
+
+
+def _check_prek(root: Path) -> CheckResult:
+    prek = root / "prek.toml"
+    if not prek.exists():
+        return CheckResult("prek.toml", False, "prek.toml missing")
+    has_betterleaks = "betterleaks" in prek.read_text(encoding="utf-8")
+    detail = "present" if has_betterleaks else "betterleaks hook missing"
+    return CheckResult("prek betterleaks hook", has_betterleaks, detail)
+
+
+def _check_env_schema(root: Path) -> CheckResult:
+    schema = root / ".env.schema"
+    if not schema.exists():
+        return CheckResult(".env.schema", False, "missing (run varlock)")
+    tracked = _git_tracked(root, ".env.schema")
+    detail = "tracked" if tracked else "exists but not tracked by git"
+    return CheckResult(".env.schema tracked", tracked, detail)
+
+
+def _check_env_ignored(root: Path) -> CheckResult:
+    ok = _gitignored(root, ".env")
+    return CheckResult(".env ignored", ok, "ignored" if ok else ".env is not gitignored")
+
+
+def _check_astgrep(root: Path) -> CheckResult | None:
+    prek = root / "prek.toml"
+    prek_has_astgrep = prek.exists() and "ast-grep" in prek.read_text(encoding="utf-8")
+    if not prek_has_astgrep:
+        return None
+    rules_dir = root / "ast-grep" / "rules"
+    rules = list(rules_dir.glob("*.yml")) if rules_dir.exists() else []
+    ok = (root / "sgconfig.yml").exists() and bool(rules)
+    detail = "ok" if ok else "ast-grep hook present but sgconfig.yml/rules missing"
+    return CheckResult("ast-grep config", ok, detail)
+
+
+def _check_agents_md(root: Path) -> CheckResult:
+    am = root / "AGENTS.md"
+    if not am.exists():
+        return CheckResult("AGENTS.md", False, "missing")
+    has = AGENTS_MARKER in am.read_text(encoding="utf-8")
+    detail = "present" if has else f"{AGENTS_MARKER} missing"
+    return CheckResult("AGENTS.md section", has, detail)
+
+
 def run_checks(root: Path | None = None) -> list[CheckResult]:
     root = root or Path.cwd()
-    results: list[CheckResult] = []
-
-    gi = root / ".gitignore"
-    if gi.exists():
-        present = {ln.rstrip() for ln in gi.read_text(encoding="utf-8").splitlines()}
-        missing = [e for e in GITIGNORE_ENTRIES if e not in present]
-        results.append(
-            CheckResult(
-                ".gitignore entries",
-                not missing,
-                "all present" if not missing else f"missing: {', '.join(missing)}",
-            )
-        )
-    else:
-        results.append(CheckResult(".gitignore entries", False, ".gitignore missing"))
-
-    prek = root / "prek.toml"
-    if prek.exists():
-        body = prek.read_text(encoding="utf-8")
-        results.append(
-            CheckResult(
-                "prek betterleaks hook",
-                "betterleaks" in body,
-                "present" if "betterleaks" in body else "betterleaks hook missing",
-            )
-        )
-    else:
-        results.append(CheckResult("prek.toml", False, "prek.toml missing"))
-
     # Agent config is per-agent and optional: validate whatever is present rather than
-    # requiring opencode.jsonc. AGENTS.md (checked below) is the only universal requirement.
-    results += _agent_config_checks(root)
-
-    schema = root / ".env.schema"
-    if schema.exists():
-        tracked = _git_tracked(root, ".env.schema")
-        results.append(
-            CheckResult(
-                ".env.schema tracked",
-                tracked,
-                "tracked" if tracked else "exists but not tracked by git",
-            )
-        )
-    else:
-        results.append(CheckResult(".env.schema", False, "missing (run varlock)"))
-
-    env_ignored = _gitignored(root, ".env")
-    results.append(
-        CheckResult(
-            ".env ignored", env_ignored, "ignored" if env_ignored else ".env is not gitignored"
-        )
-    )
-
-    sg = root / "sgconfig.yml"
-    prek_has_astgrep = prek.exists() and "ast-grep" in prek.read_text(encoding="utf-8")
-    if prek_has_astgrep:
-        rules = (
-            list((root / "ast-grep" / "rules").glob("*.yml"))
-            if (root / "ast-grep" / "rules").exists()
-            else []
-        )
-        ok = sg.exists() and bool(rules)
-        results.append(
-            CheckResult(
-                "ast-grep config",
-                ok,
-                "ok" if ok else "ast-grep hook present but sgconfig.yml/rules missing",
-            )
-        )
-
-    results += _check_skills_manifest(root)
-
-    am = root / "AGENTS.md"
-    if am.exists():
-        has = AGENTS_MARKER in am.read_text(encoding="utf-8")
-        results.append(
-            CheckResult("AGENTS.md section", has, "present" if has else f"{AGENTS_MARKER} missing")
-        )
-    else:
-        results.append(CheckResult("AGENTS.md", False, "missing"))
-
-    return results
+    # requiring opencode.jsonc. AGENTS.md is the only universal requirement. `_check_astgrep`
+    # returns None (filtered out) when the ast-grep hook isn't present in prek.toml.
+    checks: list[CheckResult | None] = [
+        _check_gitignore(root),
+        _check_prek(root),
+        *_agent_config_checks(root),
+        _check_env_schema(root),
+        _check_env_ignored(root),
+        _check_astgrep(root),
+        *_check_skills_manifest(root),
+        _check_agents_md(root),
+    ]
+    return [c for c in checks if c is not None]
