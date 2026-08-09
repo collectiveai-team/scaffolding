@@ -21,9 +21,18 @@ scaffolded repo's roadmap (a Next.js frontend, a Go service) without adding a se
 
 ## Configuration
 
-Runs via the reusable workflow (`google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2`)
+Runs via the reusable workflow (`google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.5.0`)
 with `scan-args: --lockfile=uv.lock` — `uv.lock` is natively recognized by filename, no
 parser-forcing prefix needed.
+
+Two things the caller must get right, both of which fail at startup with zero jobs rather than
+as a scan error:
+
+- **Pin an exact tag.** The action publishes no floating `v2` tag or branch, so `@v2` is an
+  unresolvable ref.
+- **Grant the calling job `security-events: write`** (plus `actions: read`, `contents: read`).
+  A called workflow cannot hold more permissions than its caller, and the reusable job needs
+  them to upload SARIF.
 
 ## Migration (existing repos)
 
