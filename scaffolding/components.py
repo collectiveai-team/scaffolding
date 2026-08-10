@@ -104,8 +104,8 @@ ASTGREP_RULES = [
     "cli-typed-framework",
     "arch-database-package",
 ]
-# MATTPOCOCK_SKILLS / LOCAL_SKILLS now live in scaffolding/skills.py, next to the
-# manifest logic that consumes them (CES-107).
+# MATTPOCOCK_REF / MATTPOCOCK_SKILLS / LOCAL_SKILLS now live in scaffolding/skills.py,
+# next to the manifest logic that consumes them (CES-107).
 DEFAULT_CI_PARTS = ["tests", "security", "docker"]
 # "opencode" is opt-in only (off by default): it needs repo secrets and the
 # OpenCode GitHub App installed, so it is never added unless explicitly chosen.

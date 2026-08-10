@@ -282,9 +282,29 @@ after the run there is no diff showing what the seed replaced. Afterwards
 `npx skills add <source> --skill <name>` with the real source, or deleting the
 directory.
 
+### The house baseline
+
+What a repo with no manifest gets seeded with — the curated upstream set, this
+repo's recurring local skills (`ask-user`, `journalist`, `handoff`,
+`test-smell-review`), and varlock:
+
+```bash
+npx skills add 'mattpocock/skills#v1.2.3' --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts wizard grill-me teach writing-for-agents grilling wait-what
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff test-smell-review
+npx skills add dmno-dev/varlock --agent opencode --yes
+```
+
+The upstream set is pinned by the `#<tag>` fragment — do not rewrite it as
+`mattpocock/skills@v1.2.3`, which the `skills` CLI parses as a skill-name filter
+and installs from the default branch instead. Bump the tag in
+`scaffolding/skills.py`, never here.
+
+From a local checkout, install local skills with
+`npx skills add . --agent opencode --yes --skill ask-user journalist handoff test-smell-review --full-depth`.
+
 ### Changing a repo's skill set
 
-Never by editing `components.py` — that is only the baseline for repos with no
+Never by editing `skills.py` — that is only the baseline for repos with no
 manifest. Always through the `skills` CLI, which records the source, ref and hash
 it actually used:
 

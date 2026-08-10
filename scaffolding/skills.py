@@ -53,7 +53,15 @@ MANIFEST_FILE = "skills-lock.json"
 # patterns — that is what keeps "clean-adds plus a whitelist" a checkable invariant.
 UNIGNORE_WHITELIST = frozenset({MANIFEST_FILE})
 
-MATTPOCOCK_SOURCE = "mattpocock/skills"
+# Pinned to an upstream release tag. Unpinned, `npx skills add` tracks the default
+# branch, so an upstream rename lands silently in every scaffolded repo (v1.2.0
+# renamed writing-great-skills -> writing-for-agents with no alias, and the installer
+# skips unknown names without failing). Note the ref must be a `#fragment`: the
+# `owner/repo@ref` form is parsed as a skill-name filter and the ref is ignored.
+# The skills-drift workflow reports when a newer tag is available.
+MATTPOCOCK_REF = "v1.2.3"
+MATTPOCOCK_REPO = "mattpocock/skills"
+MATTPOCOCK_SOURCE = f"{MATTPOCOCK_REPO}#{MATTPOCOCK_REF}"
 SCAFFOLDING_SOURCE = "collectiveai-team/scaffolding"
 VARLOCK_SOURCE = "dmno-dev/varlock"
 
@@ -74,10 +82,12 @@ MATTPOCOCK_SKILLS = [
     "codebase-design",
     "code-review",
     "resolving-merge-conflicts",
+    "wizard",
     "grill-me",
     "teach",
-    "writing-great-skills",
+    "writing-for-agents",
     "grilling",
+    "wait-what",
 ]
 LOCAL_SKILLS = ["ask-user", "journalist", "handoff", "test-smell-review"]
 VARLOCK_SKILLS = ["varlock"]

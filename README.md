@@ -124,6 +124,12 @@ overwritten. If the manifest is gitignored, install offers to un-ignore it — t
 one consent this asks for, since it is the one file the repo owns that scaffolding
 edits.
 
+The baseline it seeds is the curated upstream set from Matt Pocock, pinned to a
+release tag, plus this repo's local skills and varlock — the exact commands are
+below under [seeding by hand](#seeding-by-hand). The catalog and the tag live in
+`scaffolding/skills.py`; the `skills-drift` workflow reports renames, removals
+and newer tags.
+
 Skills install once into `.agents/skills`; claude-code reaches them via the
 `.claude/skills` symlink created by the bootstrap, so there is no need to re-run
 the installer with `--agent claude-code` / `--agent codex`.
@@ -139,7 +145,7 @@ the installer with `--agent claude-code` / `--agent codex`.
 | Remove a skill | delete the directory **and** the manifest entry, `scaffolding check`, commit |
 | Skills installed, no manifest | `scaffolding install`, then read the warnings — see below |
 
-`components.py` is not part of any of these. It is the baseline for repos that have
+`skills.py` is not part of any of these. It is the baseline for repos that have
 no manifest yet; changing a repo's skill set is always `npx skills`, and the CLI
 records the source, ref and hash it used.
 
@@ -190,13 +196,22 @@ git add -A && git commit
 precisely so a half-finished removal cannot pass silently. Because the baseline is
 never re-applied, a removed skill stays removed.
 
-To seed by hand instead of running the CLI:
+#### Seeding by hand
+
+Instead of running the CLI:
 
 ```bash
-npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
+npx skills add 'mattpocock/skills#v1.2.3' --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts wizard grill-me teach writing-for-agents grilling wait-what
 npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff test-smell-review
 npx skills add dmno-dev/varlock --agent opencode --yes
 ```
+
+The `#<tag>` fragment is the only pin the `skills` CLI accepts — `owner/repo@tag`
+is silently parsed as a skill-name filter, and an unpinned install tracks the
+upstream default branch. Bump the tag in `scaffolding/skills.py`, never here.
+
+From a local checkout, install local skills with
+`npx skills add . --agent opencode --yes --skill ask-user journalist handoff test-smell-review --full-depth`.
 
 ## Upstream skills from Matt Pocock
 
@@ -209,11 +224,17 @@ Model-invoked engineering workflows:
 
 - `prototype`, `diagnosing-bugs`, `research`, `tdd`.
 - `domain-modeling`, `codebase-design`, `code-review`, `resolving-merge-conflicts`.
+- `wizard` — generates an interactive bash script for the steps only a human can
+  take (provisioning, credentials, CI secrets, dashboard clicks).
 
 Productivity workflows:
 
-- User-invoked: `grill-me`, `teach`, `writing-great-skills`.
-- Model-invoked: `grilling`.
+- User-invoked: `grill-me`, `teach`, `wait-what`.
+- Model-invoked: `grilling`, `writing-for-agents`.
+
+These land as editable files you own, but `npx skills add` / `skills update`
+overwrite them in place without a diff or a prompt, so keep local edits in this
+repo's own `skills/`, not in `.agents/skills`.
 
 ## What's in this repo
 
