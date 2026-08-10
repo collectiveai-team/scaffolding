@@ -35,6 +35,13 @@ def _doc(name: str) -> str:
     return (REPO_ROOT / name).read_text(encoding="utf-8")
 
 
+def _local_skill_root(name: str) -> Path | None:
+    # Local skills are filed under a category directory (skills/<category>/<name>),
+    # and the category is not part of the installed name — the `skills` CLI flattens
+    # them into .agents/skills. Resolve by name, not by a hardcoded category.
+    return next((p.parent for p in REPO_ROOT.glob(f"skills/*/{name}/SKILL.md")), None)
+
+
 def test_source_pins_a_ref_as_a_fragment():
     # `owner/repo@tag` is parsed by the skills CLI as a skill-name filter, not a
     # ref, and installs from the default branch without warning.
@@ -92,8 +99,8 @@ def test_readme_catalog_lists_every_upstream_skill():
 
 def test_local_skills_exist_on_disk():
     for skill in LOCAL_SKILLS:
-        assert (REPO_ROOT / "skills" / "productivity" / skill / "SKILL.md").is_file(), (
-            f"LOCAL_SKILLS names {skill}, which has no SKILL.md"
+        assert _local_skill_root(skill) is not None, (
+            f"LOCAL_SKILLS names {skill}, which has no SKILL.md under skills/*/"
         )
 
 
@@ -101,7 +108,8 @@ def test_user_invoked_local_skills_carry_codex_policy():
     # Codex reads agents/openai.yaml, not the Claude-style frontmatter key, so a
     # user-invoked skill without the policy block is implicitly invokable there.
     for skill in LOCAL_SKILLS:
-        root = REPO_ROOT / "skills" / "productivity" / skill
+        root = _local_skill_root(skill)
+        assert root is not None, f"LOCAL_SKILLS names {skill}, which has no SKILL.md"
         frontmatter = (root / "SKILL.md").read_text(encoding="utf-8")
         codex = root / "agents" / "openai.yaml"
         assert codex.is_file(), f"{skill} is missing agents/openai.yaml"
@@ -115,6 +123,6 @@ def test_user_invoked_local_skills_carry_codex_policy():
 def test_ask_user_routes_every_installed_skill():
     routed = _doc("skills/productivity/ask-user/SKILL.md")
     # ask-user is the router; it should not need to route itself.
-    expected = set(MATTPOCOCK_SKILLS) | set(LOCAL_SKILLS) - {"ask-user"}
+    expected = (set(MATTPOCOCK_SKILLS) | set(LOCAL_SKILLS)) - {"ask-user"}
     missing = sorted(name for name in expected if f"/{name}" not in routed)
     assert not missing, f"ask-user does not route installed skills: {missing}"

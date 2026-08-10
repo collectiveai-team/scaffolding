@@ -222,11 +222,12 @@ Skills install **once** into the shared `.agents/skills` standard (read by
 opencode + codex). When `claude-code` is selected, the `agent-config` component's
 `.claude/skills` → `.agents/skills` symlink makes the same skills visible to
 Claude — do **not** re-run the installer per agent. Install the curated upstream
-skills, then this repo's recurring local skills (`ask-user`, `journalist`, `handoff`):
+skills, then this repo's recurring local skills (`ask-user`, `journalist`, `handoff`,
+`test-smell-review`):
 
 ```bash
 npx skills add 'mattpocock/skills#v1.2.3' --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts wizard grill-me teach writing-for-agents grilling wait-what
-npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff test-smell-review
 npx skills add dmno-dev/varlock --agent opencode --yes
 ```
 
@@ -236,7 +237,7 @@ and installs from the default branch instead. Bump the tag in
 `scaffolding/components.py`, never here.
 
 From a local checkout, install local skills with
-`npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth`.
+`npx skills add . --agent opencode --yes --skill ask-user journalist handoff test-smell-review --full-depth`.
 
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering

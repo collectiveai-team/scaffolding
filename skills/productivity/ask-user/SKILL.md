@@ -16,7 +16,7 @@ For an idea that needs to ship:
 2. If a design question needs a runnable answer, use `/handoff` to branch into a fresh `/prototype` session, then `/handoff` the findings back.
 3. For work that fits one session, use `/implement` directly. For multi-session work, use `/to-spec`, then `/to-tickets`, and start a fresh `/implement` session for each unblocked ticket.
 
-`/implement` drives `/tdd` at agreed seams and closes with `/code-review`. Use `/tdd` or `/code-review` directly when only that focused workflow is needed.
+`/implement` drives `/tdd` at agreed seams and closes with `/code-review`. Use `/tdd` or `/code-review` directly when only that focused workflow is needed. `/test-smell-review` applies whenever tests are written or edited; reach for it directly to audit an existing suite for tests that pass without protecting anything.
 
 Keep grilling, specification, and ticketing in one context window when practical, so each step builds on the same thinking. Between independently implementable tickets, clear context — see Phase Boundaries.
 

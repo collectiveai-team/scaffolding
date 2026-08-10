@@ -112,13 +112,13 @@ removals and newer tags.
 Then install my local skills from this repo:
 
 ```bash
-npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff test-smell-review
 ```
 
 If installing from a checkout, run from this repo:
 
 ```bash
-npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth
+npx skills add . --agent opencode --yes --skill ask-user journalist handoff test-smell-review --full-depth
 ```
 
 Skills install once into `.agents/skills`; claude-code reaches them via the
