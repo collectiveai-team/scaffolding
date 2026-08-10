@@ -97,22 +97,28 @@ These are real skills you install once and use repeatedly. They land in the
 shared `.agents/skills` standard (read by opencode + codex); selecting
 `claude-code` bridges them via the `.claude/skills` → `.agents/skills` symlink.
 
-Install selected upstream skills from Matt Pocock:
+Install selected upstream skills from Matt Pocock, pinned to a release tag:
 
 ```bash
-npx skills add mattpocock/skills --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts grill-me teach writing-great-skills grilling
+npx skills add 'mattpocock/skills#v1.2.3' --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts wizard grill-me teach writing-for-agents grilling wait-what
 ```
+
+The `#<tag>` fragment is the only pin the `skills` CLI accepts — `owner/repo@tag`
+is silently parsed as a skill-name filter, and unpinned installs track the
+upstream default branch. The catalog and the tag live in
+`scaffolding/components.py`; the `skills-drift` workflow reports renames,
+removals and newer tags.
 
 Then install my local skills from this repo:
 
 ```bash
-npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff
+npx skills add collectiveai-team/scaffolding --agent opencode --yes --skill ask-user journalist handoff test-smell-review
 ```
 
 If installing from a checkout, run from this repo:
 
 ```bash
-npx skills add . --agent opencode --yes --skill ask-user journalist handoff --full-depth
+npx skills add . --agent opencode --yes --skill ask-user journalist handoff test-smell-review --full-depth
 ```
 
 Skills install once into `.agents/skills`; claude-code reaches them via the
@@ -130,11 +136,17 @@ Model-invoked engineering workflows:
 
 - `prototype`, `diagnosing-bugs`, `research`, `tdd`.
 - `domain-modeling`, `codebase-design`, `code-review`, `resolving-merge-conflicts`.
+- `wizard` — generates an interactive bash script for the steps only a human can
+  take (provisioning, credentials, CI secrets, dashboard clicks).
 
 Productivity workflows:
 
-- User-invoked: `grill-me`, `teach`, `writing-great-skills`.
-- Model-invoked: `grilling`.
+- User-invoked: `grill-me`, `teach`, `wait-what`.
+- Model-invoked: `grilling`, `writing-for-agents`.
+
+These land as editable files you own, but `npx skills add` / `skills update`
+overwrite them in place without a diff or a prompt, so keep local edits in this
+repo's own `skills/`, not in `.agents/skills`.
 
 ## What's in this repo
 
