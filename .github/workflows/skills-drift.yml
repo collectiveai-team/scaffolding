@@ -1,6 +1,6 @@
 name: skills-drift
 
-# Guard the curated upstream skill catalog in scaffolding/components.py.
+# Guard the curated upstream skill catalog in scaffolding/skills.py.
 #
 # `npx skills add` skips unknown skill names without failing, so an upstream
 # rename lands as a silently missing skill in every scaffolded repo — which is
@@ -9,19 +9,17 @@ name: skills-drift
 # On push/PR: assert the pinned tag still publishes every curated skill.
 # On schedule: also compare against the newest upstream tag, so a rename or
 # removal surfaces as a red run instead of at the next bump.
+#
+# Deliberately NOT paths:-filtered. A filter has to name every file the guard
+# depends on, and it silently stops firing the moment one of them moves — which
+# is exactly what happened when the catalog moved from components.py to
+# skills.py. The job is a `uv sync` plus one script, so filtering it buys
+# nothing and can only fail open. Do not re-add a paths: filter here.
 
 on:
   push:
     branches: [main]
-    paths:
-      - "scaffolding/components.py"
-      - "scripts/check_skill_drift.py"
-      - ".github/workflows/skills-drift.yml"
   pull_request:
-    paths:
-      - "scaffolding/components.py"
-      - "scripts/check_skill_drift.py"
-      - ".github/workflows/skills-drift.yml"
   schedule:
     # Weekly, so upstream renames surface without a code change here.
     - cron: "0 7 * * 1"

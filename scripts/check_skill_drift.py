@@ -2,7 +2,7 @@
 
 `npx skills add` skips unknown skill names without failing, so an upstream rename
 lands as a silently missing skill in every scaffolded repo. This checks the
-catalog in `scaffolding.components` against the pinned tag (always) and against
+catalog in `scaffolding.skills` against the pinned tag (always) and against
 the newest upstream tag (with --check-upstream, for the scheduled run).
 
 Run: uv run python scripts/check_skill_drift.py [--check-upstream]
