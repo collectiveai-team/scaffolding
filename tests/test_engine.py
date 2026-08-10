@@ -9,11 +9,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 from scaffolding.checks import run_checks
-from scaffolding.components import AGENTS_MARKER, LOCAL_SKILLS, STANDARDS_MARKER
+from scaffolding.components import AGENTS_MARKER, STANDARDS_MARKER
 from scaffolding.engine import UnknownComponent, apply, build_plan, select_components
 from scaffolding.facts import detect
 from scaffolding.plan import Agent, Decisions, Disposition
 from scaffolding.settings import Settings
+from scaffolding.skills import LOCAL_SKILLS
 from scaffolding.templates_registry import template_text
 
 if TYPE_CHECKING:

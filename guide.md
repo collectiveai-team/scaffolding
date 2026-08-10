@@ -221,9 +221,72 @@ everything else. Do not edit `CLAUDE.md` during bootstrap unless asked.
 Skills install **once** into the shared `.agents/skills` standard (read by
 opencode + codex). When `claude-code` is selected, the `agent-config` component's
 `.claude/skills` → `.agents/skills` symlink makes the same skills visible to
-Claude — do **not** re-run the installer per agent. Install the curated upstream
-skills, then this repo's recurring local skills (`ask-user`, `journalist`, `handoff`,
-`test-smell-review`):
+Claude — do **not** re-run the installer per agent.
+
+**`skills-lock.json` is the tracked skills manifest** (CES-107): it declares which
+skills the repo uses and where they come from, and it is committed.
+`.agents/skills/` is *derived* from it and stays gitignored. It is the
+`pyproject.toml` / `uv.lock` split: the house baseline is the intent, this file is
+the resolved set. The guarantee is weaker than `uv.lock` — entries carry a `ref`
+only when the source was pinned (`owner/repo#v1.2.3`), tags are mutable, and
+`computedHash` is written but never verified on restore. Call it a manifest.
+
+**The `skills` CLI owns this file. Never write it from scaffolding, and never
+hand-edit it.** Re-serialising it drops `ref`, `skillPath` and `computedHash`;
+upstream notes that losing `skillPath` alone makes `update` refetch every skill in
+the source repo. Adding a skill is `npx skills add`.
+
+The `skills` component picks one of two paths:
+
+| Repo state | What happens |
+| --- | --- |
+| Manifest present | restore from it — it is the source of truth |
+| No manifest | seed the house baseline, which makes the CLI write the manifest |
+
+Plus one refusal: a manifest that exists but does not parse is **deferred**, never
+overwritten. If the manifest is gitignored, install offers to un-ignore it, a
+decision defaulting to **yes** — the only consent this component asks for. Restore
+is:
+
+```bash
+npx skills experimental_install
+```
+
+**The manifest is never topped up towards the house baseline.** A skill the repo
+dropped is a decision, not a gap (CES-30). The baseline seeds a repo that has none.
+
+Seeding uses `npx skills add <source> --agent opencode --yes --skill …`, and those
+ops assert a post-condition: the named skills must exist **in `.agents/skills/`
+afterwards**, or the install fails loudly. This is not belt-and-braces. `skills
+add` is not atomic and does not signal partial failure — adding `tdd triage
+no-such-skill-xyz` installs two skills, writes the manifest and exits **0**, so an
+upstream rename is invisible to the exit code. The post-condition reads the tree
+rather than the manifest, because the manifest is written by the same tool being
+verified. A missing `npx` is still a non-fatal skip.
+
+A repo with **installed skills but no manifest** is the common migration case.
+Provenance is not recoverable from disk — an installed skill directory holds only
+`SKILL.md`, and without a manifest `skills list --json` reports `source: null` — so
+the baseline is seeded and both hazards are warned about before anything runs:
+
+- a skill **outside the baseline** stays on disk, undeclared, and `scaffolding
+  check` fails on it until `npx skills add <source> --skill <name>` declares it. No
+  entry is fabricated; a guessed source is worse than an honest gap.
+- a skill **sharing a baseline name** is overwritten by `skills add`. The tree is
+  gitignored, so there is no diff to recover a hand-edited copy from. Copy it out
+  first.
+
+Both warnings are emitted at plan time. **Read them before accepting the plan** —
+after the run there is no diff showing what the seed replaced. Afterwards
+`scaffolding check` names what is still undeclared, and the fix is either
+`npx skills add <source> --skill <name>` with the real source, or deleting the
+directory.
+
+### The house baseline
+
+What a repo with no manifest gets seeded with — the curated upstream set, this
+repo's recurring local skills (`ask-user`, `journalist`, `handoff`,
+`test-smell-review`), and varlock:
 
 ```bash
 npx skills add 'mattpocock/skills#v1.2.3' --agent opencode --yes --skill grill-with-docs triage improve-codebase-architecture setup-matt-pocock-skills to-spec to-tickets implement wayfinder prototype diagnosing-bugs research tdd domain-modeling codebase-design code-review resolving-merge-conflicts wizard grill-me teach writing-for-agents grilling wait-what
@@ -234,10 +297,44 @@ npx skills add dmno-dev/varlock --agent opencode --yes
 The upstream set is pinned by the `#<tag>` fragment — do not rewrite it as
 `mattpocock/skills@v1.2.3`, which the `skills` CLI parses as a skill-name filter
 and installs from the default branch instead. Bump the tag in
-`scaffolding/components.py`, never here.
+`scaffolding/skills.py`, never here.
 
 From a local checkout, install local skills with
 `npx skills add . --agent opencode --yes --skill ask-user journalist handoff test-smell-review --full-depth`.
+
+### Changing a repo's skill set
+
+Never by editing `skills.py` — that is only the baseline for repos with no
+manifest. Always through the `skills` CLI, which records the source, ref and hash
+it actually used:
+
+| Situation | What to run |
+| --- | --- |
+| New repo | `scaffolding install`, then commit `skills-lock.json` |
+| Existing repo, first adoption | `scaffolding install`, accept the un-ignore prompt, commit |
+| Fresh clone / CI | `scaffolding install` (or `npx skills experimental_install`) |
+| Add a skill | `npx skills add <source> --agent opencode --yes --skill <name>`, commit |
+| Remove a skill | delete the directory **and** the manifest entry, `scaffolding check`, commit |
+| Skills installed, no manifest | `scaffolding install`, then read the warnings above |
+
+**Removing needs the manual path.** `npx skills remove` does not work for projects
+using `.agents/skills/`: the directory is shared by ~15 agents and the CLI keeps
+both the files and the manifest entry while any other detected agent still
+references the skill (`src/remove.ts:262-302`), so it reports success and changes
+nothing. `--agent '*'` is documented but rejected at runtime. Until that is fixed
+upstream:
+
+```bash
+rm -rf .agents/skills/<name>
+# delete the "<name>" entry from skills-lock.json
+scaffolding check    # fails if you did only one of the two
+git add -A && git commit
+```
+
+This is the one place a human edits the manifest, and it is a workaround, not the
+intended flow. `scaffolding check` compares both directions precisely so a
+half-finished removal cannot pass silently, and because the baseline is never
+re-applied, a removed skill stays removed.
 
 After installing, run the `setup-matt-pocock-skills` skill once to configure the
 repo (issue tracker, triage labels, domain docs) that the other engineering
@@ -250,9 +347,11 @@ tracker when the user explicitly wants it.
 
 Run `scaffolding check` — it asserts the completeness checklist (gitignore
 entries incl. `!.env.schema`; prek `betterleaks` hook; `.env.schema` tracked and
-`.env` ignored; ast-grep config when the hook is present; the `AGENTS.md` section,
-which is the only universal requirement). Agent config is validated **only when
-present**: `opencode.jsonc` (schema/plugin/permission), `.claude/settings.json`
+`.env` ignored; ast-grep config when the hook is present; the skills manifest
+present, not gitignored, tracked, and reconciled against `.agents/skills/` in both
+directions — declared-but-absent and installed-but-undeclared; the `AGENTS.md`
+section, which is the only universal requirement). Agent config is validated
+**only when present**: `opencode.jsonc` (schema/plugin/permission), `.claude/settings.json`
 (secret `permissions.deny`), and `CLAUDE.md` → `AGENTS.md`. Then confirm any
 deferred merges you applied by hand preserved all existing content, and that no
 existing file, key, array item, or comment was removed without explicit user

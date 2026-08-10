@@ -8,7 +8,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from scaffolding.agent_config import AGENTS_SKILLS_DIR
 from scaffolding.components import AGENTS_MARKER, GITIGNORE_ENTRIES
+from scaffolding.skills import MANIFEST_FILE, installed_names, read_manifest
 
 
 @dataclass
@@ -106,6 +108,68 @@ def _agent_config_checks(root: Path) -> list[CheckResult]:
     return _check_opencode(root) + _check_claude(root)
 
 
+def _check_skills_manifest(root: Path) -> list[CheckResult]:
+    """CES-107: the manifest is tracked, and the derived tree matches what it declares."""
+    manifest = read_manifest(root)
+    if manifest is None:
+        return [
+            CheckResult(
+                "skills manifest",
+                False,
+                f"{MANIFEST_FILE} missing or unreadable — run `scaffolding install skills`",
+            )
+        ]
+
+    out: list[CheckResult] = []
+    ignored = _gitignored(root, MANIFEST_FILE)
+    out.append(
+        CheckResult(
+            "skills manifest not ignored",
+            not ignored,
+            "ok" if not ignored else f"remove {MANIFEST_FILE} from .gitignore — it must be tracked",
+        )
+    )
+    # Tracking is checked separately from ignoring: the engine never touches the git
+    # index, so `git add` stays a human act that this check enforces.
+    tracked = _git_tracked(root, MANIFEST_FILE)
+    out.append(
+        CheckResult(
+            "skills manifest tracked",
+            tracked,
+            "tracked" if tracked else f"exists but untracked — run `git add {MANIFEST_FILE}`",
+        )
+    )
+
+    # Drift is checked in both directions. A declared-but-absent skill means the
+    # tree is stale; an installed-but-undeclared one means the repo has a skill that
+    # evaporates on a fresh clone, since .agents/skills/ is gitignored. That second
+    # case is the failure mode this standard exists to eliminate, so it cannot be
+    # the one direction we do not look at.
+    installed = set(installed_names(root, AGENTS_SKILLS_DIR))
+    missing = sorted(manifest.names - installed)
+    out.append(
+        CheckResult(
+            "declared skills installed",
+            not missing,
+            "ok"
+            if not missing
+            else f"declared but not in {AGENTS_SKILLS_DIR}: {', '.join(missing)}",
+        )
+    )
+    extra = sorted(installed - manifest.names)
+    out.append(
+        CheckResult(
+            "installed skills declared",
+            not extra,
+            "ok"
+            if not extra
+            else f"in {AGENTS_SKILLS_DIR} but not in {MANIFEST_FILE}: {', '.join(extra)} — "
+            "run `npx skills add <source> --skill <name>` to declare them",
+        )
+    )
+    return out
+
+
 def _check_gitignore(root: Path) -> CheckResult:
     gi = root / ".gitignore"
     if not gi.exists():
@@ -172,6 +236,7 @@ def run_checks(root: Path | None = None) -> list[CheckResult]:
         _check_env_schema(root),
         _check_env_ignored(root),
         _check_astgrep(root),
+        *_check_skills_manifest(root),
         _check_agents_md(root),
     ]
     return [c for c in checks if c is not None]

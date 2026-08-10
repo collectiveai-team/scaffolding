@@ -14,16 +14,16 @@ from pathlib import Path
 
 import pytest
 
-from scaffolding.components import (
+from scaffolding.engine import build_plan
+from scaffolding.facts import detect
+from scaffolding.settings import Settings
+from scaffolding.skills import (
     LOCAL_SKILLS,
     MATTPOCOCK_REF,
     MATTPOCOCK_REPO,
     MATTPOCOCK_SKILLS,
     MATTPOCOCK_SOURCE,
 )
-from scaffolding.engine import build_plan
-from scaffolding.facts import detect
-from scaffolding.settings import Settings
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_WITH_INSTALL_COMMAND = ["README.md", "guide.md"]
@@ -60,7 +60,9 @@ def test_planned_command_installs_the_pinned_source_and_catalog(tmp_path: Path):
         "the upstream install must go through the pinned source, not the bare repo"
     )
     cmd = next(c for c in cmds if MATTPOCOCK_SOURCE in c)
-    assert cmd[cmd.index("--skill") + 1 :] == MATTPOCOCK_SKILLS
+    # The seed groups one `skills add` per source and sorts the names within it,
+    # so compare the set the command installs, not the order it lists them in.
+    assert cmd[cmd.index("--skill") + 1 :] == sorted(MATTPOCOCK_SKILLS)
 
 
 @pytest.mark.parametrize("name", DOCS_WITH_INSTALL_COMMAND)

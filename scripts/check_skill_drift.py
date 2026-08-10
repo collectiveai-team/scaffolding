@@ -19,7 +19,7 @@ from pathlib import Path
 
 import cyclopts
 
-from scaffolding.components import MATTPOCOCK_REF, MATTPOCOCK_REPO, MATTPOCOCK_SKILLS
+from scaffolding.skills import MATTPOCOCK_REF, MATTPOCOCK_REPO, MATTPOCOCK_SKILLS
 
 CLONE_URL = f"https://github.com/{MATTPOCOCK_REPO}.git"
 SEMVER_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")

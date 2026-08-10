@@ -8,6 +8,10 @@
   (component registry), `templates/` (bundled package data). The CLI is the
   single deterministic engine; keep it **clean-adds-only** — it must never edit,
   merge, or overwrite existing target files (existing targets are deferred).
+  The one bounded exception is the `unignore` op, which may delete a literal line
+  listed in `UNIGNORE_WHITELIST` (`scaffolding/skills.py`) from `.gitignore`. It is
+  reported under `edits`, not `clean_adds`. Do not widen it, and do not remove it
+  as an invariant violation — see `docs/adr/0001-scoped-unignore-op.md`.
 - `install.sh` — thin bootstrap shim (ensure `uv`, then `uvx … scaffolding
   install`). Keep it minimal and keep its raw URL pointing at
   `collectiveai-team/scaffolding` on `main`.
@@ -42,7 +46,7 @@ tessl review run <SKILL.md>
 Run it against each changed skill (e.g. `tessl review run skills/productivity/journalist/SKILL.md`)
 and resolve the reported issues before publishing. It needs `tessl login`.
 
-The upstream skill catalog (`MATTPOCOCK_SKILLS` in `scaffolding/components.py`) is
+The upstream skill catalog (`MATTPOCOCK_SKILLS` in `scaffolding/skills.py`) is
 the single source of truth — `README.md` and `guide.md` only copy it, and
 `tests/test_skill_catalog.py` fails when a copy drifts. Bump `MATTPOCOCK_REF`
 there to take a new upstream release; never edit the install command in the docs
@@ -91,6 +95,8 @@ judgment; `[snippet]` ships canonical code under `.agents/snippets/` (in target 
   `BaseModel`, never a raw `dict`. → `@.agents/rules/no-dict.md`
 - **CES-71 · keep files small** `[prek]` — `file-size-guard` warns at 400 lines, errors at 700.
   → `@.agents/rules/file-size-guard.md`
+- **CES-107 · track the skills manifest** `[script]` — commit `skills-lock.json`; `.agents/skills/`
+  is derived and gitignored; install restores from it. → `@.agents/rules/skills-manifest.md`
 - **CES-45 · use the house get_logger** `[ast-grep]` — no direct `logging.getLogger`. →
   `@.agents/rules/log-get-logger.md`
 - **CES-46 · libraries log, they don't print** `[ast-grep]` — no `print()` in library code;
