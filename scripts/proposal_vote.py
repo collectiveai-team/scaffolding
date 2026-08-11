@@ -59,6 +59,11 @@ BY_QUORUM = "approved:quorum"
 BY_LAZY = "approved:lazy"
 PROVENANCE_LABELS = frozenset({BY_QUORUM, BY_LAZY})
 
+# A shipped standard is not under review. Its proposal issue stays open as the SSOT
+# for the rule's text, but the tally must not drag it back to state:proposal — the
+# code is already enforced and cited in AGENTS.md and in downstream repos.
+AS_BUILT = "as-built"
+
 RESET_MARKER = "<!-- proposal-vote:reset -->"
 TALLY_MARKER = "<!-- proposal-vote:tally -->"
 WARN_MARKER = "<!-- proposal-vote:warn -->"
@@ -281,6 +286,20 @@ def writers(repo: str) -> frozenset[str]:
     )
 
 
+def settled(labels: set[str], closed: bool) -> str:
+    """Say why a proposal is out of the vote's hands, or "" while it is under review.
+
+    Derivation governs proposals being decided, not ones already decided. Without this
+    an empty ledger reverts a shipped standard to state:proposal, which is exactly what
+    happened to CES-109/110/111/113/114/118/119.
+    """
+    if closed:
+        return "closed"
+    if AS_BUILT in labels:
+        return f"{AS_BUILT} — shipped, state frozen"
+    return ""
+
+
 def _apply(repo: str, number: int, decision: Decision, current: set[str]) -> bool:
     """Write the derived labels. Returns True when the state label actually moved.
 
@@ -418,8 +437,22 @@ def tally_issue(issue: int, *, repo: str = "", now: str = "", team: str = "") ->
     """
     repo = repo or _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).strip()
     raw = json.loads(
-        _gh(["issue", "view", str(issue), "--repo", repo, "--json", "comments,labels,createdAt"])
+        _gh(
+            [
+                "issue",
+                "view",
+                str(issue),
+                "--repo",
+                repo,
+                "--json",
+                "comments,labels,createdAt,state",
+            ]
+        )
     )
+    labels = {lab["name"] for lab in raw["labels"]}
+    if reason := settled(labels, raw["state"] == "CLOSED"):
+        print(f"#{issue}: skipped — {reason}")
+        return
     comments = _load_comments(raw["comments"])
     since = last_reset(comments, _ts(raw["createdAt"]))
     audience = Audience(
@@ -429,7 +462,6 @@ def tally_issue(issue: int, *, repo: str = "", now: str = "", team: str = "") ->
     )
     counted = tally(parse_commands(comments, since), audience.electorate)
     moment = _ts(now) if now else dt.datetime.now(dt.UTC)
-    labels = {lab["name"] for lab in raw["labels"]}
     decision = decide(counted, moment, current=current_state(labels))
     moved = _apply(repo, issue, decision, labels)
     print(f"#{issue}: {decision.state} — {decision.reason}")
