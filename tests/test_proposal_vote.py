@@ -6,7 +6,6 @@ pipeline the workflow runs, rather than through internals (CES-65).
 
 from __future__ import annotations
 
-import dataclasses
 import datetime as dt
 import importlib.util
 import sys
@@ -38,7 +37,7 @@ def comment(login: str, body: str, *, day: int = 1, bot: bool = False) -> object
 
 def run(comments: list, *, eligible=REVIEWERS, since=T0, at_day: int = 2, current: str = ""):
     commands = pv.parse_commands(comments, since)
-    counted = dataclasses.replace(pv.tally(commands, eligible), since=since)
+    counted = pv.tally(commands, eligible)
     return pv.decide(counted, T0 + dt.timedelta(days=at_day), current=current)
 
 
@@ -208,15 +207,22 @@ def test_unresolvable_team_falls_back_to_a_team_mention():
     assert pv._ping(room, set()) == "@collectiveai-team/botique"
 
 
-def test_team_slug_must_be_qualified():
-    with pytest.raises(SystemExit, match="org/slug"):
-        pv.resolve_team("botique")
+def test_team_resolution_never_aborts_the_tally(capsys):
+    """A notification problem must not be able to kill the vote gate.
+
+    Raising here is what silently broke every CI run: the tally died before counting
+    a single vote, and `| tee` masked the non-zero exit as a green check.
+    """
+    assert pv.resolve_team("botique") == ()
+    assert "::error::" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
     ("body", "counts"),
     [
         ("/approve", True),
+        ("/Approve", True),
+        ("/APPROVE", True),
         ("  /approve  ", True),
         ("/approve looks good to me", True),
         ("sounds good, /approve", False),
@@ -262,3 +268,26 @@ def test_a_double_labelled_issue_reads_as_the_blocking_state():
     assert pv.current_state({pv.DECLINED, pv.APPROVED}) == pv.DECLINED
     assert pv.current_state({pv.HAD_COMMENTS, pv.PROPOSAL}) == pv.HAD_COMMENTS
     assert pv.current_state(set()) == ""
+
+
+def test_the_clock_runs_from_the_approval_not_the_text_age():
+    """A stale proposal must not auto-approve the moment someone first approves it.
+
+    39 of the 65 open proposals are already older than the window, so anchoring the
+    clock to the revision date made the least-reviewed proposals the easiest to pass.
+    """
+    ancient = T0 - dt.timedelta(days=48)
+    fresh = [comment("jedzill4", "/approve", day=1)]
+    assert run(fresh, since=ancient, at_day=2).state == pv.PROPOSAL
+    assert run(fresh, since=ancient, at_day=6).warn is True
+    assert run(fresh, since=ancient, at_day=9).state == pv.APPROVED
+
+
+def test_withdrawing_and_reapproving_restarts_the_clock():
+    votes = [
+        comment("jedzill4", "/approve", day=1),
+        comment("jedzill4", "/withdraw", day=2),
+        comment("jedzill4", "/approve", day=3),
+    ]
+    assert run(votes, at_day=9).state == pv.PROPOSAL
+    assert run(votes, at_day=11).state == pv.APPROVED
