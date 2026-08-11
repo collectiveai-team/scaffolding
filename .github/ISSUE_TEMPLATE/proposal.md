@@ -17,8 +17,9 @@ vote below and any manual value is overwritten on the next tally.
 
 ## How this gets decided
 
-Comment one of these, **on a line of its own** (`/approved`, `> /approve` or
-`` `/approve` `` do **not** count — the command must start the line):
+Comment one of these, **on a line of its own** — the command must start the line.
+`` `/approve` `` and `**/approve**` are fine; `> /approve` (quoting someone) and
+`/approved` are not.
 
 | Command | Effect |
 |---|---|
@@ -26,11 +27,14 @@ Comment one of these, **on a line of its own** (`/approved`, `> /approve` or
 | `/object <reason>` | Veto. Blocks approval regardless of how many approve. Only **you** can lift it. |
 | `/withdraw` | Retract your standing vote. |
 | `/decline` | Vote to reject. Needs quorum — silence never declines. |
+| `/upvote` | Signal support. Anyone may use it; advisory only, it never approves anything. |
 
 - **Approved** at **2 approvals**, or 1 approval + **7 days** with no objection
   (tagged `approved:lazy`, so unread standards stay auditable). The clock starts at
   the first approval, not at the issue date.
-- Only accounts with **write access** are counted.
+- Only accounts with **write access** are counted for approve/object/decline.
+- Progress shows on the board: `waiting-review` once someone approves, `blocked` while an
+  objection stands, `upvote:N` for advisory support (`/upvote` + thumbs-up reactions).
 - **Revising the body dismisses approvals** — they were cast against text that no
   longer exists. Objections survive; a decline is final.
 - `/update-proposal <instructions>` revises this proposal in place. It cannot approve

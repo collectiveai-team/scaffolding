@@ -227,7 +227,9 @@ def test_team_resolution_never_aborts_the_tally(capsys):
         ("/approve looks good to me", True),
         ("sounds good, /approve", False),
         ("> /approve", False),
-        ("`/approve`", False),
+        ("`/approve`", True),
+        ("**/approve**", True),
+        ("_/approve_", False),
         ("/approved", False),
         ("/approvex", False),
     ],
@@ -302,3 +304,37 @@ def test_a_shipped_standard_is_out_of_the_votes_hands():
     assert pv.settled({pv.APPROVED}, closed=True) != ""
     assert pv.settled({pv.APPROVED}, closed=False) == ""
     assert pv.settled({pv.PROPOSAL}, closed=False) == ""
+
+
+def test_upvotes_are_advisory_and_never_move_the_state():
+    """The repo is public. If a drive-by /upvote could nudge approval, that is a hole."""
+    crowd = [comment(f"stranger{i}", "/upvote", day=1) for i in range(50)]
+    assert run(crowd).state == pv.PROPOSAL
+    assert run(crowd, at_day=99).state == pv.PROPOSAL
+    assert run(crowd).votes == ()
+
+
+def test_anyone_may_upvote_including_non_electors():
+    cmds = pv.parse_commands([comment("outsider", "/upvote"), comment("jedzill4", "/upvote")], T0)
+    assert pv.count_upvotes(cmds, ()) == ("jedzill4", "outsider")
+
+
+def test_an_account_is_counted_once_however_it_signals():
+    cmds = pv.parse_commands([comment("dmazzini", "/upvote")], T0)
+    assert pv.count_upvotes(cmds, ("dmazzini", "ahaimo")) == ("ahaimo", "dmazzini")
+
+
+def test_waiting_review_marks_an_approval_short_of_quorum():
+    assert run([comment("jedzill4", "/approve")]).signal == pv.WAITING
+    assert run([]).signal == ""
+
+
+def test_blocked_marks_a_standing_objection():
+    blocked = run([comment("jedzill4", "/approve"), comment("ahaimo", "/object no")])
+    assert (blocked.state, blocked.signal) == (pv.HAD_COMMENTS, pv.BLOCKED)
+
+
+def test_signals_clear_once_the_proposal_is_settled():
+    both = [comment("jedzill4", "/approve"), comment("dmazzini", "/approve")]
+    assert run(both).signal == ""
+    assert run([comment("jedzill4", "/approve", day=1)], at_day=9).signal == ""

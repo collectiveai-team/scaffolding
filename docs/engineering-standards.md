@@ -89,7 +89,11 @@ Case does not matter; a trailing word does not (`/approve looks good` counts).
 | `/object <reason>` | Veto. Blocks approval at any count. Only its author can lift it. |
 | `/withdraw` | Retract your standing vote. |
 | `/decline` | Vote to reject. Needs quorum; silence never declines. |
+| `/upvote` | Signal support. **Anyone** may upvote; it is advisory and never moves the state. |
 | `/update-proposal <instructions>` | Revise the proposal in place. Cannot approve or decline. |
+
+Markdown wrappers are tolerated — `` `/approve` `` and `**/approve**` count. Quoting does
+not: `> /approve` is a colleague's vote, not yours.
 
 ### Rules
 
@@ -111,14 +115,17 @@ Case does not matter; a trailing word does not (`/approve looks good` counts).
 - **Shipped standards are out of scope.** Label an implemented proposal `as-built` (or
   close it) and the tally leaves it alone — otherwise an empty ledger would revert a
   live, enforced rule to `state:proposal`.
+- **Upvotes are interest, not authority.** `/upvote` and thumbs-up reactions both feed
+  `upvote:N`, deduped per account. The repo is public, so they are deliberately excluded
+  from the state machine: no number of upvotes approves anything.
 
 ### Board states
 
 | Labels | Meaning | Waiting on |
 |---|---|---|
 | `state:proposal`, no `vote:*` | draft | author to declare it ready |
-| `state:proposal` + 1 `vote:*` | under review | a second reviewer |
-| `state:had-comments` | objection open | author to revise, then objector to `/withdraw` |
+| `state:proposal` + `waiting-review` | approved once, short of quorum | a second reviewer |
+| `state:had-comments` + `blocked` | objection open | author to revise, then objector to `/withdraw` |
 | `state:approved` | consensus recorded | implementer |
 | `state:approved` + `as-built` | shipped | nothing |
 

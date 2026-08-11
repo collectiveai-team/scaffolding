@@ -35,7 +35,7 @@ import json
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import cyclopts
 
@@ -55,6 +55,14 @@ STATE_PRECEDENCE = (DECLINED, HAD_COMMENTS, APPROVED, PROPOSAL)
 # How an approval was won. `state:approved` stays the single state so queries and
 # downstream tooling don't fork, but the board must say which approvals nobody
 # actually read: `label:approved:lazy` is the audit query for that.
+# Board signals: what the proposal needs from a human right now.
+WAITING = "waiting-review"
+BLOCKED = "blocked"
+SIGNAL_LABELS = frozenset({WAITING, BLOCKED})
+# Advisory support. NEVER feeds the state machine: the repo is public, so letting a
+# drive-by account nudge approval would be a hole. Interest, not authority.
+UPVOTE_PREFIX = "upvote:"
+
 BY_QUORUM = "approved:quorum"
 BY_LAZY = "approved:lazy"
 PROVENANCE_LABELS = frozenset({BY_QUORUM, BY_LAZY})
@@ -73,7 +81,16 @@ WRITE_ROLES = frozenset({"admin", "maintain", "write"})
 # Case-insensitive: `/Approve` is unambiguously a vote, and silently dropping it
 # is the same trap as `/approved`. Still anchored to line start so quoting a
 # colleague's vote never casts one.
-COMMAND = re.compile(r"^[ \t]*/(approve|object|decline|withdraw)\b", re.MULTILINE | re.IGNORECASE)
+# Leading ` and * are tolerated because people reflexively format commands
+# (underscore is excluded on purpose: `_/approve_` cannot end on a \b, and
+# weakening that boundary is what would let `/approved` through).
+# (`/approve`, **/approve**) and silently dropping those reads as a broken system.
+# `>` is deliberately NOT tolerated: that is a quoted colleague, not your vote. The
+# anchor to line start is what keeps quoting safe, so it stays.
+COMMAND = re.compile(
+    r"^[ \t]*[`*]{0,3}[ \t]*/(approve|object|decline|withdraw|upvote)\b",
+    re.MULTILINE | re.IGNORECASE,
+)
 
 app = cyclopts.App(name="proposal-vote", help=__doc__)
 
@@ -129,6 +146,8 @@ class Decision:
     warn: bool = False
     votes: tuple[str, ...] = field(default_factory=tuple)
     provenance: str = ""
+    signal: str = ""
+    upvotes: int = 0
 
 
 @dataclass(frozen=True)
@@ -192,6 +211,15 @@ def tally(commands: list[Command], eligible: frozenset[str]) -> Tally:
     )
 
 
+def count_upvotes(commands: list[Command], reactions: tuple[str, ...]) -> tuple[str, ...]:
+    """Accounts signalling support, deduped: `/upvote` from anyone, plus thumbs-up.
+
+    Explicitly NOT filtered by write access — the point is to let people without a
+    vote register interest. Equally explicitly, the result never reaches `decide()`.
+    """
+    return tuple(sorted({c.login for c in commands if c.verb == "upvote"} | set(reactions)))
+
+
 def current_state(labels: set[str]) -> str:
     """Report the state an issue already carries, resolved blocking-first if it has two."""
     return next((state for state in STATE_PRECEDENCE if state in labels), "")
@@ -224,7 +252,11 @@ def decide(
             DECLINED, f"declined by {len(counted.declines)} reviewers", votes=counted.declines
         )
     if counted.objections:
-        return Decision(HAD_COMMENTS, f"objection open from {', '.join(counted.objections)}")
+        return Decision(
+            HAD_COMMENTS,
+            f"objection open from {', '.join(counted.objections)}",
+            signal=BLOCKED,
+        )
     if len(counted.approvals) >= quorum:
         return Decision(
             APPROVED,
@@ -240,7 +272,14 @@ def decide(
             provenance=BY_LAZY,
         )
     warn = bool(counted.approvals) and WARN_DAYS <= waited < LAZY_DAYS
-    return Decision(PROPOSAL, f"awaiting review ({len(counted.approvals)}/{quorum})", warn=warn)
+    return Decision(
+        PROPOSAL,
+        f"awaiting review ({len(counted.approvals)}/{quorum})",
+        warn=warn,
+        # An approval that has not yet reached quorum is the state that needs a human:
+        # somebody said "ready", nobody has seconded it.
+        signal=WAITING if counted.approvals else "",
+    )
 
 
 def _ts(raw: str) -> dt.datetime:
@@ -307,12 +346,16 @@ def _apply(repo: str, number: int, decision: Decision, current: set[str]) -> boo
     hand-labelling has already produced) is healed rather than left ambiguous.
     """
     keep = {f"vote:{login}" for login in decision.votes}
-    want = keep | {decision.state} | ({decision.provenance} if decision.provenance else set())
+    optional = {decision.provenance, decision.signal} - {""}
+    if decision.upvotes:
+        optional.add(f"{UPVOTE_PREFIX}{decision.upvotes}")
+    want = keep | {decision.state} | optional
     add = want - current
     remove = (
         ({lab for lab in current if lab.startswith("vote:")} - keep)
+        | ({lab for lab in current if lab.startswith(UPVOTE_PREFIX)} - want)
         | ((STATE_LABELS - {decision.state}) & current)
-        | ((PROVENANCE_LABELS - want) & current)
+        | ((PROVENANCE_LABELS | SIGNAL_LABELS) - want) & current
     )
     for label in sorted(add):
         _gh(["label", "create", label, "--repo", repo, "--force"])
@@ -325,6 +368,20 @@ def _apply(repo: str, number: int, decision: Decision, current: set[str]) -> boo
 
 def _comment(repo: str, number: int, marker: str, body: str) -> None:
     _gh(["issue", "comment", str(number), "--repo", repo, "--body", f"{marker}\n{body}"])
+
+
+def thumbs_up(repo: str, issue: int) -> tuple[str, ...]:
+    """Logins that reacted to the issue with a thumbs-up. Best effort."""
+    try:
+        raw = _gh(["api", f"repos/{repo}/issues/{issue}/reactions", "--paginate"])
+    except subprocess.CalledProcessError as exc:
+        _annotate("warning", f"#{issue}: could not read reactions: {exc}")
+        return ()
+    return tuple(
+        r["user"]["login"]
+        for r in json.loads(raw)
+        if r.get("content") == "+1" and (r.get("user") or {}).get("type") == "User"
+    )
 
 
 def _posted_since(comments: list[Comment], marker: str, since: dt.datetime) -> bool:
@@ -461,8 +518,13 @@ def tally_issue(issue: int, *, repo: str = "", now: str = "", team: str = "") ->
         team_members=resolve_team(team) if team else (),
     )
     counted = tally(parse_commands(comments, since), audience.electorate)
+    # Upvotes span the whole history, not just the current revision: they register
+    # interest in the idea, which a wording change does not invalidate.
+    supporters = count_upvotes(parse_commands(comments, None), thumbs_up(repo, issue))
     moment = _ts(now) if now else dt.datetime.now(dt.UTC)
-    decision = decide(counted, moment, current=current_state(labels))
+    decision = replace(
+        decide(counted, moment, current=current_state(labels)), upvotes=len(supporters)
+    )
     moved = _apply(repo, issue, decision, labels)
     print(f"#{issue}: {decision.state} — {decision.reason}")
     # State is already written. Notifying is best-effort from here: losing a ping is a
