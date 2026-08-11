@@ -116,6 +116,7 @@ jobs:
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           NOTIFY_TEAM: ${{ vars.PROPOSAL_NOTIFY_TEAM }}
+        shell: bash   # `bash -e` alone lacks pipefail; `| tee` would mask a failure
         run: |
           uv run python scripts/proposal_vote.py tally-issue \
             --issue "$ISSUE_NUMBER" --repo "$REPO" --team "$NOTIFY_TEAM" \
@@ -150,6 +151,7 @@ jobs:
           GH_TOKEN: ${{ secrets.ORG_READ_TOKEN || github.token }}
           REPO: ${{ github.repository }}
           NOTIFY_TEAM: ${{ vars.PROPOSAL_NOTIFY_TEAM }}
+        shell: bash   # `bash -e` alone lacks pipefail; `| tee` would mask a failure
         run: |
           uv run python scripts/proposal_vote.py sweep --repo "$REPO" --team "$NOTIFY_TEAM" \
             | tee -a "$GITHUB_STEP_SUMMARY"

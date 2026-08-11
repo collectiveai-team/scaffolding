@@ -35,7 +35,7 @@ import json
 import re
 import subprocess
 import sys
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 
 import cyclopts
 
@@ -65,7 +65,10 @@ WARN_MARKER = "<!-- proposal-vote:warn -->"
 CALL_MARKER = "<!-- proposal-vote:review-call -->"
 
 WRITE_ROLES = frozenset({"admin", "maintain", "write"})
-COMMAND = re.compile(r"^[ \t]*/(approve|object|decline|withdraw)\b", re.MULTILINE)
+# Case-insensitive: `/Approve` is unambiguously a vote, and silently dropping it
+# is the same trap as `/approved`. Still anchored to line start so quoting a
+# colleague's vote never casts one.
+COMMAND = re.compile(r"^[ \t]*/(approve|object|decline|withdraw)\b", re.MULTILINE | re.IGNORECASE)
 
 app = cyclopts.App(name="proposal-vote", help=__doc__)
 
@@ -96,15 +99,20 @@ class Tally:
     approvals: tuple[str, ...] = ()
     objections: tuple[str, ...] = ()
     declines: tuple[str, ...] = ()
-    since: dt.datetime | None = None
     # Every eligible account that issued any command, including a /withdraw that
     # left no standing vote. This is "has the ledger been touched", not "who agrees".
     spoke: tuple[str, ...] = ()
+    # When the earliest still-standing approval was cast. The lazy clock runs from
+    # here, NOT from the last revision: otherwise a proposal that has sat unread for
+    # 48 days auto-approves the instant someone first approves it, with no window for
+    # anyone to object.
+    first_approval: dt.datetime | None = None
 
-    def age_days(self, now: dt.datetime) -> float:
-        if self.since is None:
+    def waiting_days(self, now: dt.datetime) -> float:
+        """How long this has stood approved and unopposed — the lazy-consensus clock."""
+        if self.first_approval is None:
             return 0.0
-        return (now - self.since).total_seconds() / 86400.0
+        return (now - self.first_approval).total_seconds() / 86400.0
 
 
 @dataclass(frozen=True)
@@ -148,7 +156,7 @@ def parse_commands(comments: list[Comment], since: dt.datetime | None) -> list[C
         if comment.is_bot:
             continue
         found.extend(
-            Command(login=comment.login, verb=match.group(1), at=comment.at)
+            Command(login=comment.login, verb=match.group(1).lower(), at=comment.at)
             for match in COMMAND.finditer(comment.body)
         )
     return found
@@ -156,23 +164,26 @@ def parse_commands(comments: list[Comment], since: dt.datetime | None) -> list[C
 
 def tally(commands: list[Command], eligible: frozenset[str]) -> Tally:
     """Reduce commands to at most one standing vote per account (last command wins)."""
-    standing: dict[str, str] = {}
+    standing: dict[str, Command] = {}
     for command in commands:
         if command.login not in eligible:
             continue
         if command.verb == "withdraw":
             standing.pop(command.login, None)
         else:
-            standing[command.login] = command.verb
+            standing[command.login] = command
 
     def who(verb: str) -> tuple[str, ...]:
-        return tuple(sorted(login for login, v in standing.items() if v == verb))
+        return tuple(sorted(login for login, c in standing.items() if c.verb == verb))
+
+    cast = [c.at for c in standing.values() if c.verb == "approve"]
 
     return Tally(
         approvals=who("approve"),
         objections=who("object"),
         declines=who("decline"),
         spoke=tuple(sorted({c.login for c in commands if c.login in eligible})),
+        first_approval=min(cast) if cast else None,
     )
 
 
@@ -202,7 +213,7 @@ def decide(
     if current == HAD_COMMENTS and not counted.spoke:
         return Decision(HAD_COMMENTS, "untouched ledger — existing objection preserved")
 
-    age = counted.age_days(now)
+    waited = counted.waiting_days(now)
     if len(counted.declines) >= quorum:
         return Decision(
             DECLINED, f"declined by {len(counted.declines)} reviewers", votes=counted.declines
@@ -216,14 +227,14 @@ def decide(
             votes=counted.approvals,
             provenance=BY_QUORUM,
         )
-    if counted.approvals and age >= LAZY_DAYS:
+    if counted.approvals and waited >= LAZY_DAYS:
         return Decision(
             APPROVED,
-            f"lazy consensus: {age:.0f}d since last revision, no objection",
+            f"lazy consensus: {waited:.0f}d approved and unopposed",
             votes=counted.approvals,
             provenance=BY_LAZY,
         )
-    warn = bool(counted.approvals) and WARN_DAYS <= age < LAZY_DAYS
+    warn = bool(counted.approvals) and WARN_DAYS <= waited < LAZY_DAYS
     return Decision(PROPOSAL, f"awaiting review ({len(counted.approvals)}/{quorum})", warn=warn)
 
 
@@ -301,26 +312,43 @@ def _posted_since(comments: list[Comment], marker: str, since: dt.datetime) -> b
     return any(c.is_bot and marker in c.body and c.at > since for c in comments)
 
 
-def resolve_team(team: str) -> tuple[str, ...]:
-    """Members of `org/slug`, or `()` when this token cannot see the org.
+def _annotate(level: str, message: str) -> None:
+    """Surface a problem in the Actions UI without failing the run."""
+    print(f"::{level}::{message}")
 
-    A misspelled slug renders as plain text and notifies **nobody**, so a definitive
-    404 is fatal — silent non-delivery is the worst outcome for a review gate. A 403
-    is merely unverifiable: GITHUB_TOKEN is repo-scoped and cannot read org teams, so
-    we fall back to a raw team mention there.
+
+def _can_list_teams(org: str) -> bool:
+    try:
+        _gh(["api", f"orgs/{org}/teams", "--paginate"])
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+
+def resolve_team(team: str) -> tuple[str, ...]:
+    """Members of `org/slug`, or `()` when they cannot be read.
+
+    **Never raises.** Notification is a courtesy, and a courtesy must not be able to
+    abort the vote tally — an earlier version raised here and silently killed every
+    run in CI before a single vote was counted.
+
+    A repo-scoped GITHUB_TOKEN receives **404, not 403**, for org endpoints it cannot
+    see, so "team is missing" and "team is invisible to me" are indistinguishable from
+    the error alone. Probe the org's team list to tell them apart: readable means a
+    missing slug is a genuine typo (loud annotation, since a bad slug notifies nobody);
+    unreadable just means no org scope, so degrade to mentioning the team.
     """
     if "/" not in team:
-        raise SystemExit(f"--team must be 'org/slug', got {team!r}")
+        _annotate("error", f"--team must be 'org/slug', got {team!r}")
+        return ()
     org, slug = team.split("/", 1)
     try:
         raw = _gh(["api", f"orgs/{org}/teams/{slug}/members", "--paginate"])
-    except subprocess.CalledProcessError as exc:
-        detail = (exc.stderr or "") + (exc.stdout or "")
-        if "Not Found" in detail or "404" in detail:
-            raise SystemExit(
-                f"team {team!r} does not exist — a bad slug notifies nobody, silently"
-            ) from exc
-        print(f"  cannot read {team} members ({detail.strip()[:80]}) — mentioning the team")
+    except subprocess.CalledProcessError:
+        if _can_list_teams(org):
+            _annotate("error", f"team {team!r} does not exist — a bad slug notifies nobody")
+        else:
+            print(f"  no org scope for {org}: mentioning @{team} rather than its members")
         return ()
     return tuple(sorted(p["login"] for p in json.loads(raw)))
 
@@ -377,7 +405,7 @@ def _announce(repo: str, issue: int, ctx: Outcome, audience: Audience) -> None:
             issue,
             WARN_MARKER,
             f"{_ping(audience, heard)} — auto-approves under lazy consensus in "
-            f"{LAZY_DAYS - counted.age_days(ctx.now):.0f} day(s) "
+            f"{LAZY_DAYS - counted.waiting_days(ctx.now):.0f} day(s) "
             f"({len(counted.approvals)} approval, no objection). `/object` to stop the clock.",
         )
 
@@ -399,13 +427,18 @@ def tally_issue(issue: int, *, repo: str = "", now: str = "", team: str = "") ->
         team=team,
         team_members=resolve_team(team) if team else (),
     )
-    counted = replace(tally(parse_commands(comments, since), audience.electorate), since=since)
+    counted = tally(parse_commands(comments, since), audience.electorate)
     moment = _ts(now) if now else dt.datetime.now(dt.UTC)
     labels = {lab["name"] for lab in raw["labels"]}
     decision = decide(counted, moment, current=current_state(labels))
     moved = _apply(repo, issue, decision, labels)
     print(f"#{issue}: {decision.state} — {decision.reason}")
-    _announce(repo, issue, Outcome(decision, counted, comments, since, moment, moved), audience)
+    # State is already written. Notifying is best-effort from here: losing a ping is a
+    # nuisance, losing the derived state is a broken gate.
+    try:
+        _announce(repo, issue, Outcome(decision, counted, comments, since, moment, moved), audience)
+    except subprocess.CalledProcessError as exc:
+        _annotate("warning", f"#{issue}: state written but notification failed: {exc}")
 
 
 @app.command
@@ -430,8 +463,16 @@ def sweep(*, repo: str = "", team: str = "") -> None:
             ".[].number",
         ]
     )
+    failed: list[str] = []
     for line in listing.split():
-        tally_issue(int(line), repo=repo, team=team)
+        # One unreadable issue must not strand the remaining 60-odd.
+        try:
+            tally_issue(int(line), repo=repo, team=team)
+        except subprocess.CalledProcessError as exc:
+            failed.append(line)
+            _annotate("warning", f"#{line}: tally failed: {exc}")
+    if failed:
+        _annotate("error", f"sweep could not tally: {', '.join('#' + n for n in failed)}")
 
 
 if __name__ == "__main__":
