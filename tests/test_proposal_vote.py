@@ -291,3 +291,14 @@ def test_withdrawing_and_reapproving_restarts_the_clock():
     ]
     assert run(votes, at_day=9).state == pv.PROPOSAL
     assert run(votes, at_day=11).state == pv.APPROVED
+
+
+def test_a_shipped_standard_is_out_of_the_votes_hands():
+    """CES-109/110/111/113/114/118/119 are enforced in code and cited in AGENTS.md.
+
+    An empty ledger must not drag them back to state:proposal.
+    """
+    assert pv.settled({pv.AS_BUILT, pv.APPROVED}, closed=False) != ""
+    assert pv.settled({pv.APPROVED}, closed=True) != ""
+    assert pv.settled({pv.APPROVED}, closed=False) == ""
+    assert pv.settled({pv.PROPOSAL}, closed=False) == ""
